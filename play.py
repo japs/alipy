@@ -9,11 +9,11 @@ imagepaths = glob.glob("images/*.fits")
 
 
 
-refcat = pysex.run("images/ECAM.fits", params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELLIPTICITY', 'NUMBER'],
+refcat = pysex.run("images/ECAM.fits", params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'],
 	keepcat=True, rerun=False, catdir="cats"
 	)
 
-ukncat = pysex.run("images/C2.fits", params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELLIPTICITY', 'NUMBER'],
+ukncat = pysex.run("images/C2.fits", params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'],
 	keepcat=True, rerun=False, catdir="cats"
 	)
 

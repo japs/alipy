@@ -1,8 +1,7 @@
 """
 Overhaul of cosmouline's star module, for alipy2.
-This module contains all the geometric matching algorithms.
+This module contains stuff for geometric matching algorithms.
 """
-
 
 import sys, os
 import math
@@ -21,7 +20,7 @@ class Star:
 		"""
 		flux : Some "default" or "automatic" flux, might be a just good guess. Used for sorting etc.
 		If you have several fluxes, colours, store them in the props dict.
-		props : A dict to contain other properties of your choice (not required nor used by the methods).
+		props : A placeholder dict to contain other properties of your choice (not required nor used by the methods).
 		"""
 		self.x = float(x)
 		self.y = float(y)
@@ -43,63 +42,33 @@ class Star:
 			return self.elon
 	
 	def __str__(self):
+		"""
+		A string representation of a source.
+		"""
 		return "%10s : (%8.2f,%8.2f) | %12.2f | %5.2f %5.2f" % (self.name, self.x, self.y, self.flux, self.fwhm, self.elon)
 
+	def coords(self):
+		"""
+		Returns the coords in form of an array.
+		"""
+		return np.array([self.x, self.y])
 
-	def shift(self, shift):
-		"""
-		shift is a tuple (x, y)
-		"""
-		self.x = self.x + shift[0]
-		self.y = self.y + shift[1]
-	
-	def rotate(self, angle, center = (0, 0)):
-		"""
-		Plain rotation
-		angle is in degrees, center is a tuple (x, y)
-		"""
-		
-		anglerad = math.pi*angle/180.0
-		rota = 	math.cos(anglerad)
-		rotb = -math.sin(anglerad)
-		rotc = -rotb
-		rotd = rota
-		xs = self.x - center[0]
-		ys = self.y - center[1]
-		us = rota*xs + rotb*ys
-		vs = rotc*xs + rotd*ys
-		self.x = us + center[0]
-		self.y = vs + center[1]
-
-	def zoom(self, scalingratio):
-		self.x = self.x * scalingratio
-		self.y = self.y * scalingratio
-
-	def findshift(self, otherstar):
-		"""
-		returns the shift from self to the other stars, as a tuple
-		i.e. "otherstar - self"
-		"""
-		return (otherstar.x - self.x, otherstar.y - self.y)
-		
 	def distance(self, otherstar):
 		"""
-		returns the distance between the two stars
+		Returns the distance between the two stars.
 		"""
-		shift = self.findshift(otherstar)
-		return math.sqrt(shift[0]*shift[0] + shift[1]*shift[1])
+		return math.sqrt(np.sum((self.coords() - otherstar.coords())**2))
 
 	def trigangle(self, otherstar):
 		"""
-		returns the "trigonometric" angle of the vector to go from
+		returns the "trigonometric" angle of the vector that goes from
 		self to the otherstar, in degrees
 		"""
 		return math.atan2(otherstar.y - self.y, otherstar.x - self.x) * (180.0/math.pi) % 360.0
 		
-
 	def distanceandsort(self, otherstarlist):
 		"""
-		returns a list of dicts(star, dist, origpos), sorted by distance to self.
+		Returns a list of dicts(star, dist, origpos), sorted by distance to self.
 		The 0th star is the closest.
 		
 		otherstarlist is not modified.
@@ -116,25 +85,242 @@ class Star:
 
 ### And now some functions to manipulate list of such stars ###
 
-def transform((x, y), a, b, c, d):
+
+def printlist(starlist):
 	"""
-	Transform of (x, y) coordinates with matrix + shift :
-	Returns [[a -b], [b a]] * (x, y) + [c d]
-	a = S*cos(theta)
-	b = S*sin(theta)
+	Prints the stars ...
 	"""
-	xn = a*x -b*y + c
-	yn = b*x +a*y + d
-	return (xn, yn)
+	for source in starlist:
+		print source
+
+def listtoarray(starlist):
+	"""
+	Transforms the starlist into a 2D numpy array for fast manipulations.
+	First index is star, second index is x or y
+	"""
+	return np.array([star.coords() for star in starlist])
 
 
-def mindist(fourstars):
+def readmancat(mancatfilepath, verbose="True"):
 	"""
-	Function that tests if these 4 stars are suitable to make a good quad...
+	Reads a "manual" star catalog -- by manual, I mean "not written by sextractor".
+	So this is typically a *short* file.
+	
+	Comment lines start with #, blank lines are ignored.
+	The format of a data line is
+	
+	starname xpos ypos [flux]
+	
+	The data is returned as a list of star objects.
 	"""
-	tests = [(0,1), (0,2), (0,3), (1,2), (1,3), (2,3)]
-	dists = np.array([fourstars[i].distance(fourstars[j]) for (i,j) in tests])
-	return np.min(dists)
+	
+	if not os.path.isfile(mancatfilepath):	
+		print "File does not exist :"
+		print mancatfilepath
+		print "Line format to write : starname xpos ypos [flux]"
+		sys.exit(1)
+		
+	
+	myfile = open(mancatfilepath, "r")
+	lines = myfile.readlines()
+	myfile.close
+	
+	table=[]
+	knownnames = [] # We check for uniqueness of the names
+	
+	for i, line in enumerate(lines):
+		if line[0] == '#' or len(line) < 4:
+			continue
+		elements = line.split()
+		nbelements = len(elements)
+		
+		if nbelements != 3 and nbelements != 4:
+			print "Format error on line", i+1, "of :"
+			print mancatfilepath
+			print "The line looks like this :"
+			print line
+			print "... but we want : starname xpos ypos [flux]"
+			sys.exit(1)
+		
+		name = elements[0]
+		x = float(elements[1])
+		y = float(elements[2])
+		if nbelements == 4:
+			flux = float(elements[3])
+		else:
+			flux = -1.0	
+		
+		if name in knownnames:
+			print "Error in %s" % (mancatfilepath)
+			print "The name '%s' (line %i) is already taken." % (name, i+1)
+			print "This is insane, bye !"
+			sys.exit(1)
+		knownnames.append(name)
+		
+		#table.append({"name":name, "x":x, "y":y, "flux":flux})
+		table.append(Star(x=x, y=y, name=name, flux=flux))
+	
+
+	if verbose: print "I've read", len(table), "sources from", os.path.split(mancatfilepath)[1]
+	return table
+
+
+def readsexcat(sexcat, verbose=True, maxflag = 2, posflux = True, propfields=[]):
+	"""
+	sexcat is either a string (path to a file), or directly an asciidata catalog object as returned by pysex
+	
+	We read a sextractor catalog with astroasciidata and return a list of stars.
+	Minimal fields that must be present in the catalog :
+		- NUMBER
+		- X_IMAGE
+		- Y_IMAGE
+		- FWHM_IMAGE
+		- ELONGATION
+		- FLUX_AUTO
+		- FLAGS
+		
+	maxflag : maximum value of the FLAGS that you still want to keep. Sources with higher values will be skipped.
+	FLAGS == 0 : all is fine
+	FLAGS == 2 : the flux is blended with another one; further info in the sextractor manual.
+	
+	posflux : if True, only stars with positive FLUX_AUTO are included.
+	
+	propfields : list of FIELD NAMES to be added to the props of the stars.
+	
+	I will always add FLAGS as a propfield by default.
+	
+	"""
+	returnlist = []
+	
+	if isinstance(sexcat, str):
+	
+		import asciidata
+		if not os.path.isfile(sexcat):
+			print "Sextractor catalog does not exist :"
+			print sexcat	
+			sys.exit(1)
+	
+		if verbose : 
+			print "Reading %s " % (os.path.split(sexcat)[1])
+		mycat = asciidata.open(sexcat)
+	
+	else: # then it's already a asciidata object
+		mycat = sexcat
+		
+	# We check for the presence of required fields :
+	minimalfields = ["NUMBER", "X_IMAGE", "Y_IMAGE", "FWHM_IMAGE", "ELONGATION", "FLUX_AUTO", "FLAGS"]
+	minimalfields.extend(propfields)
+	availablefields = [col.colname for col in mycat]
+	for field in minimalfields:
+		if field not in availablefields:
+			print "Field %s not available in your catalog file !" % (field)
+			sys.exit(1)
+	
+	if verbose : 
+		print "Number of sources in catalog : %i" % (mycat.nrows)
+		
+	propfields.append("FLAGS")
+	propfields = list(set(propfields))
+		
+	if mycat.nrows == 0:
+		if verbose :
+			print "No stars in the catalog :-("
+	else :
+		for i, num in enumerate(mycat['NUMBER']) :
+			if mycat['FLAGS'][i] > maxflag :
+				continue
+			flux = mycat['FLUX_AUTO'][i]
+			if posflux and (flux < 0.0) :
+				continue
+			
+			props = dict([[propfield, mycat[propfield][i]] for propfield in propfields])
+			
+			newstar = Star(x = mycat['X_IMAGE'][i], y = mycat['Y_IMAGE'][i], name = str(num), flux=flux,
+					props = props, fwhm = mycat['FWHM_IMAGE'][i], elon = mycat['ELONGATION'][i])
+			
+			returnlist.append(newstar)
+	
+	if verbose:
+		print "I've selected %i sources" % (len(returnlist))
+		
+	return returnlist
+
+def findstar(starlist, nametofind):
+	"""
+	Returns a list of stars for which name == nametofind
+	"""
+	foundstars = []
+	for source in starlist:
+		if source.name == nametofind:
+			foundstars.append(source)
+	return foundstars
+
+def sortstarlistbyflux(starlist):
+	"""
+	We sort starlist according to flux : highest flux first !
+	"""
+	sortedstarlist = sorted(starlist, key=operator.itemgetter('flux'))
+	sortedstarlist.reverse()
+	return sortedstarlist
+
+def sortstarlistby(starlist, measure):
+	"""
+	We sort starlist according to measure : lowest first !
+	Where measure is one of flux, fwhm, elon
+	"""
+	sortedstarlist = sorted(starlist, key=operator.itemgetter(measure))
+	return sortedstarlist
+
+
+
+
+
+class Transform:
+	"""
+	Represents an affine transformation consisting of rotation, isotropic scaling, and shift.
+	[x', y'] = [[a -b], [b a]] * [x, y] + [c d]
+	"""
+	
+	def __init__(self, v = (1, 0, 0, 0)):
+		"""
+		v = (a, b, c, d)
+		"""
+		self.v = np.asarray(v)
+	
+	def getscaling(self):
+		return math.sqrt(self.v[0]*self.v[0] + self.v[1]*self.v[1])
+		
+	def getrotation(self):
+		"""
+		The CCW rotation angle, in degrees
+		"""
+		return math.atan2(self.v[1], self.v[0]) * (180.0/math.pi) % 360.0
+	
+	def __str__(self):
+		return "Rotation [deg], Scaling %.3f" % (self.getrotation(), self.getscaling())
+		
+	
+	def apply(self, (x, y)):
+		xn = self.v[0]*x -self.v[1]*y + self.v[2]
+		yn = self.v[1]*x +self.v[0]*y + self.v[3]
+		return (xn, yn)
+		
+	def applystar(self, star):
+		(star.x, star.y) = self.apply((star.x, star.y))
+	
+	def applystarlist(self, starlist):
+		for star in starlist:
+			self.applystar(star)
+	
+	
+
+
+
+
+
+
+
+
 
 
 class Quad:
@@ -176,12 +362,14 @@ class Quad:
 		c = b*A.y - a*A.x 
 		d = - (b*A.x + a*A.y)
 		
-		# Test
-		#print transform((A.x, A.y), a, b, c, d)
-		#print transform((B.x, B.y), a, b, c, d)
+		t = Transform((a, b, c, d))
 		
-		(xC, yC) = transform((C.x, C.y), a, b, c, d)	
-		(xD, yD) = transform((D.x, D.y), a, b, c, d)
+		# Test
+		#print t.apply((A.x, A.y))
+		#print t.apply((B.x, B.y))
+		
+		(xC, yC) = t.apply((C.x, C.y))
+		(xD, yD) = t.apply((D.x, D.y))
 		
 		# Normal case
 		self.hash = (xC, yC, xD, yD)
@@ -217,6 +405,16 @@ class Quad:
 		return "Hash : %6.3f %6.3f %6.3f %6.3f / IDs : (%s, %s, %s, %s)" % (
 			self.hash[0], self.hash[1], self.hash[2], self.hash[3],
 			self.stars[0].name, self.stars[1].name, self.stars[2].name, self.stars[3].name)
+
+
+def mindist(fourstars):
+	"""
+	Function that tests if these 4 stars are suitable to make a good quad...
+	"""
+	tests = [(0,1), (0,2), (0,3), (1,2), (1,3), (2,3)]
+	dists = np.array([fourstars[i].distance(fourstars[j]) for (i,j) in tests])
+	return np.min(dists)
+
 
 def ccworder(a):
 	#Sorting a coordinate array CCW to plot polygons ...
@@ -499,219 +697,12 @@ def findtransform(starlist1, starlist2):
 	"""
 		
 
-def printlist(starlist):
-	"""
-	...
-	"""
-	for source in starlist:
-		print source
-
-def listtoarray(starlist):
-	"""
-	Puts the source catalog into a 2D numpy array for fast manipulations.
-	First index is star, second index is x or y
-	"""
-	#xs = cat["X_IMAGE"].tonumpy()
-	#ys = cat["Y_IMAGE"].tonumpy()
-	#nums = cat["NUMBER"].tonumpy()
-	#a = np.vstack((xs, ys, nums))#.transpose()
-	
-	a = np.array([(star.x, star.y) for star in starlist])
-	return a
-
-def readmancat(mancatfilepath, verbose="True"):
-	"""
-	Reads a "manual" star catalog -- by manual, I mean "not written by sextractor".
-	So this is typically a short file.
-	
-	Comment lines start with #, blank lines are ignored.
-	The format of an actual data line is
-	
-	starname xpos ypos [flux]
-	
-	The data is returned as a list of star objects.
-	"""
-	
-	if not os.path.isfile(mancatfilepath):	
-		print "File does not exist :"
-		print mancatfilepath
-		print "Line format to write : starname xpos ypos [flux]"
-		sys.exit(1)
-		
-	
-	myfile = open(mancatfilepath, "r")
-	lines = myfile.readlines()
-	myfile.close
-	
-	table=[]
-	knownnames = [] # We check for uniqueness of the names
-	
-	for i, line in enumerate(lines):
-		if line[0] == '#' or len(line) < 4:
-			continue
-		elements = line.split()
-		nbelements = len(elements)
-		
-		if nbelements != 3 and nbelements != 4:
-			print "Format error on line", i+1, "of :"
-			print mancatfilepath
-			print "The line looks like this :"
-			print line
-			print "... but we want : starname xpos ypos [flux]"
-			sys.exit(1)
-		
-		name = elements[0]
-		x = float(elements[1])
-		y = float(elements[2])
-		if nbelements == 4:
-			flux = float(elements[3])
-		else:
-			flux = -1.0	
-		
-		if name in knownnames:
-			print "Error in %s" % (mancatfilepath)
-			print "The name '%s' (line %i) is already taken." % (name, i+1)
-			print "This is insane, bye !"
-			sys.exit(1)
-		knownnames.append(name)
-		
-		#table.append({"name":name, "x":x, "y":y, "flux":flux})
-		table.append(Star(x=x, y=y, name=name, flux=flux))
-	
-		
-	
-	if verbose: print "I've read", len(table), "sources from", os.path.split(mancatfilepath)[1]
-	return table
-
-
-def readsexcat(sexcat, verbose=True, maxflag = 2, posflux = True, propfields=[]):
-	"""
-	sexcat is either a string (path to a file), or directly an asciidata catalog object as returned by pysex
-	
-	We read a sextractor catalog with astroasciidata and return a list of stars.
-	Minimal fields that must be present in the catalog :
-		- NUMBER
-		- X_IMAGE
-		- Y_IMAGE
-		- FWHM_IMAGE
-		- ELLIPTICITY
-		- FLUX_AUTO
-		- FLAGS
-		
-	maxflag : maximum value of the FLAGS that you still want to keep. Sources with higher values will be skipped.
-	FLAGS == 0 : all is fine
-	FLAGS == 2 : the flux is blended with another one; further info in the sextractor manual.
-	
-	posflux : if True, only stars with positive FLUX_AUTO are included.
-	
-	propfields : list of FIELD NAMES to be added to the props of the stars.
-	
-	I will always add FLAGS as a propfield by default.
-	
-	"""
-	returnlist = []
-	
-	if isinstance(sexcat, str):
-	
-		import asciidata
-		if not os.path.isfile(sexcat):
-			print "Sextractor catalog does not exist :"
-			print sexcat	
-			sys.exit(1)
-	
-		if verbose : 
-			print "Reading %s " % (os.path.split(sexcat)[1])
-		mycat = asciidata.open(sexcat)
-	
-	else: # then it's already a asciidata object
-		mycat = sexcat
-		
-	# We check for the presence of required fields :
-	minimalfields = ["NUMBER", "X_IMAGE", "Y_IMAGE", "FWHM_IMAGE", "ELLIPTICITY", "FLUX_AUTO", "FLAGS"]
-	minimalfields.extend(propfields)
-	availablefields = [col.colname for col in mycat]
-	for field in minimalfields:
-		if field not in availablefields:
-			print "Field %s not available in your catalog file !" % (field)
-			sys.exit(1)
-	
-	if verbose : 
-		print "Number of sources in catalog : %i" % (mycat.nrows)
-		
-	propfields.append("FLAGS")
-	propfields = list(set(propfields))
-		
-	if mycat.nrows == 0:
-		if verbose :
-			print "No stars in the catalog :-("
-	else :
-		for i, num in enumerate(mycat['NUMBER']) :
-			if mycat['FLAGS'][i] > maxflag :
-				continue
-			flux = mycat['FLUX_AUTO'][i]
-			if posflux and (flux < 0.0) :
-				continue
-			
-			props = dict([[propfield, mycat[propfield][i]] for propfield in propfields])
-			
-			newstar = Star(x = mycat['X_IMAGE'][i], y = mycat['Y_IMAGE'][i], name = str(num), flux=flux,
-					props = props, fwhm = mycat['FWHM_IMAGE'][i], ell = mycat['ELLIPTICITY'][i])
-			
-			returnlist.append(newstar)
-	
-	if verbose:
-		print "I've selected %i sources" % (len(returnlist))
-		
-	return returnlist
-	
-
-
-def findstar(starlist, nametofind):
-	"""
-	Returns a list of stars for which name == nametofind
-	"""
-	foundstars = []
-	for source in starlist:
-		if source.name == nametofind:
-			foundstars.append(source)
-	return foundstars
 
 
 
 
-	
-def sortstarlistbyflux(starlist):
-	"""
-	starlist is a list of star instances, and we sort it
-	according to flux : highest flux first
-	"""
-	sortedstarlist = sorted(starlist, key=operator.itemgetter('flux'))
-	sortedstarlist.reverse()
-	return sortedstarlist
-
-def sortstarlistby(starlist, measure):
-	"""
-	starlist is a list of star instances, and we sort it
-	according to the star obejct attribute measure : lowest first
-	
-	measure = flux, fwhm, ell
-	
-	"""
-	sortedstarlist = sorted(starlist, key=operator.itemgetter(measure))
-	return sortedstarlist
 
 
-def rotatestarlist(starlist, degrees, center):
-	for star in starlist:
-		star.rotate(degrees, center)
-		
-def shiftstarlist(starlist, shifttuple):
-	for star in starlist:
-		star.shift(shifttuple)
-
-def zoomstarlist(starlist, scalingratio):
-	for star in starlist:
-		star.zoom(scalingratio)
 
 
 
