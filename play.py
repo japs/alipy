@@ -8,14 +8,21 @@ import glob
 import alipy
 
 
-imagepaths = glob.glob("images/*.fits")
+imagepaths = sorted(glob.glob("images/*.fits"))
+print "\n".join(imagepaths)
 
 cats = [pysex.run(ip, params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'], keepcat=True, rerun=False, catdir="cats") for ip in imagepaths]
 
+#refcat = cats[1]
+
+#alipy.run(refcat, cats[0])
+#alipy.run(refcat, cats[2])
+#alipy.run(refcat, cats[3])
+
 refcat = cats[0]
-
-alipy.run(refcat, cats)
-
+alipy.run(refcat, cats[1])
+alipy.run(refcat, cats[2])
+alipy.run(refcat, cats[3])
 
 
 exit()

@@ -524,70 +524,83 @@ def ccworder(a):
 
 	
 
-def makequads(starlist, n=10, plot=False):
+def makequads(starlist, n=10, plot=False, verbose=True):
 	"""
 	Give me a list, I return a list of some quads. This is the magic kitchen recipe...
-	
-	Some big quads covering the entire field first
-	Some quads about half of the field
-	Some quads about a fourth of the field
 	"""
+
+	quadlist = []
+	sortedstars = sortstarlistbyflux(starlist)
+	
+	if verbose:
+		print "Building quads for %i stars ..." % len(starlist)
+	
+	# We start by combis of the brightest ones :
+	
+	for fourstars in itertools.combinations(sortedstars[:8], 4):
+		if mindist(fourstars) > 50.0:
+				quadlist.append(Quad(fourstars))	
+	
+	
+	# Bright quads in subareas :
+	(xmin, xmax, ymin, ymax) = area(sortedstars)
+	
+	f = 3
+	r = 1.5*max(xmax - xmin, ymax - ymin)/f
+	for xc in np.linspace(xmin, xmax, f+2):
+		for yc in np.linspace(ymin, ymax, f+2):
+			cstar = Star(x=xc, y=yc)
+			das = cstar.distanceandsort(sortedstars[:200])
+			#closest = [s["star"] for s in das[0:4]]
+			brightestwithinr = sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[0:5]
+			for fourstars in itertools.combinations(brightestwithinr, 4):
+				if mindist(fourstars) > 10.0:
+					quadlist.append(Quad(fourstars))
+		
+		
+	f = 6
+	r = 1.5*max(xmax - xmin, ymax - ymin)/f
+	for xc in np.linspace(xmin, xmax, f+2):
+		for yc in np.linspace(ymin, ymax, f+2):
+			cstar = Star(x=xc, y=yc)
+			das = cstar.distanceandsort(sortedstars[:200])
+			#closest = [s["star"] for s in das[0:4]]
+			brightestwithinr = sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[0:5]
+			for fourstars in itertools.combinations(brightestwithinr, 4):
+				if mindist(fourstars) > 10.0:
+					quadlist.append(Quad(fourstars))
+
+	"""
+	f = 12
+	r = 2.0*max(xmax - xmin, ymax - ymin)/f
+	for xc in np.linspace(xmin, xmax, f+2):
+		for yc in np.linspace(ymin, ymax, f+2):
+			cstar = Star(x=xc, y=yc)
+			das = cstar.distanceandsort(sortedstars[:200])
+			#closest = [s["star"] for s in das[0:4]]
+			brightestwithinr = sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[0:4]
+			for fourstars in itertools.combinations(brightestwithinr, 4):
+				if mindist(fourstars) > 10.0:
+					quadlist.append(Quad(fourstars))
+	"""
+	
+	
+	if verbose:
+		print "Done, %i quads" % (len(quadlist))
+
 	if plot:
 		import matplotlib.pyplot as plt
 		import matplotlib.patches as patches
 		from matplotlib.collections import PatchCollection
 	
-	
-
-	quadlist = []
-
-	# Stupid ...
-	"""
-	sortedstars = sortstarlistbyflux(starlist)[0:30]
-	for i in range(0,5):
-		quadlist.append(Quad(sortedstars[i:i+4]))
-	"""
-	
-	# All combis among the n brightest stars :
-	#n = 15
-	#print "Building %i quads ..." % (math.factorial(n)/(math.factorial(n-4)*math.factorial(4)))
-	
-	sortedstars = sortstarlistbyflux(starlist)[0:n]
-	#print len(itertools.combinations(sortedstars, 4))
-	for fourstars in itertools.combinations(sortedstars, 4):
-		if mindist(fourstars) > 10.0:
-				quadlist.append(Quad(fourstars))
-	
-	#print len(quadlist)
-	
-	
-	# Bright quads in subareas :
-	"""
-	n = 10
-	r = 2.0 * 0.5*(xw+yw)/n
-	for xc in np.linspace(xmin, xmax, n+2)[1:-1]:
-		for yc in np.linspace(ymin, ymax, n+2)[1:-1]:
-			cstar = Star(x=xc, y=yc)
-			das = cstar.distanceandsort(starlist)
-			closest = [s["star"] for s in das[0:4]]
-			brightestwithinr = sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[0:4]
-			fourstars = brightestwithinr
-			
-			if mindist(fourstars) > 10.0:
-				quadlist.append(Quad(fourstars))
-	"""
-	
-	#for q in quadlist:
-	#	print q
-
-	if plot:
-		plt.plot(a[:,0], a[:,1], marker=".", ls="none")
+		a = listtoarray(starlist)
+		plt.plot(a[:,0], a[:,1], marker=",", ls="none", color="black")
 		ax = plt.gca()
 
 		for quad in quadlist:
 			polycorners = listtoarray(quad.stars)
 			polycorners = ccworder(polycorners)
-			plt.fill(polycorners[:,0], polycorners[:,1], alpha=0.3, ec="none")
+			plt.fill(polycorners[:,0], polycorners[:,1], alpha=0.1, ec="none")
 	
 		(xmin, xmax, ymin, ymax) = area(starlist)
 		plt.xlim(xmin, xmax)
