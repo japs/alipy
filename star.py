@@ -10,6 +10,8 @@ import operator # For sorting
 import copy
 import itertools
 import scipy.linalg
+import scipy.spatial
+
 
 
 
@@ -32,6 +34,9 @@ class Star:
 		self.props = props
 		self.fwhm = float(fwhm)
 		self.elon = float(elon)
+	
+	def copy(self):
+		return copy.deepcopy(self)
 	
 	def __getitem__(self, key) :
 		"""
@@ -296,6 +301,9 @@ def sortstarlistby(starlist, measure):
 
 
 
+
+
+
 class SimpleTransform:
 	"""
 	Represents an affine transformation consisting of rotation, isotropic scaling, and shift.
@@ -318,7 +326,7 @@ class SimpleTransform:
 		return math.atan2(self.v[1], self.v[0]) * (180.0/math.pi)# % 360.0
 	
 	def __str__(self):
-		return "Rotation %+7.4f [deg], Scaling %7.4f" % (self.getrotation(), self.getscaling())
+		return "Rotation %+9.6f [deg], Scaling %8.6f" % (self.getrotation(), self.getscaling())
 		
 	
 	def apply(self, (x, y)):
@@ -327,17 +335,18 @@ class SimpleTransform:
 		return (xn, yn)
 		
 	def applystar(self, star):
-		(star.x, star.y) = self.apply((star.x, star.y))
+		transstar = star.copy()
+		(transstar.x, transstar.y) = self.apply((transstar.x, transstar.y))
+		return transstar
 	
 	def applystarlist(self, starlist):
-		for star in starlist:
-			self.applystar(star)
+		return [self.applystar(star) for star in starlist]
 	
 	
 	def fitstars(self, uknstars, refstars):
 		"""
 		I set the transform so that it puts the unknown stars (uknstars) onto the refstars.
-		If you supply only two stars, this is using linalg.solve()
+		If you supply only two stars, this is using linalg.solve() -- perfect solution.
 		If you supply more stars, we use linear least squares, i.e. minimize the 2D error.
 		
 		Formalism inspired by :
@@ -365,7 +374,49 @@ class SimpleTransform:
 		self.v = np.asarray(trans)
 
 
-
+	def teststars(self, uknstars, refstars, refrad=2.0):
+		"""
+		We apply the trans to the uknstarlist, and check for correspondance with the refstarlist.
+		Returns the number of uknstars that could be matched to refstars within refrad.
+		"""
+		
+		transuknstars = self.applystarlist(uknstars)
+		
+		transukn = listtoarray(transuknstars)
+		ref = listtoarray(refstars)
+		#print "Unknown stars   : ", transukn.shape[0]
+		#print "Reference stars : ", ref.shape[0]
+		
+		mindists = np.min(scipy.spatial.distance.cdist(ref, transukn), axis=0)
+		nbmatch = np.sum(mindists < refrad)
+		#print "Matching stars  : ", nbmatch
+		
+		return nbmatch
+		
+		
+	def refinestars(self, uknstars, refstars, refrad=5.0):
+		"""
+		I refit myself to all matching stars.
+		"""
+		
+		transuknstars = self.applystarlist(uknstars)
+		transukn = listtoarray(transuknstars)
+		ref = listtoarray(refstars)
+		
+		# Brute force...
+		dists = scipy.spatial.distance.cdist(ref, transukn)
+		uknmindistindexes = np.argmin(dists, axis=0) # For each ukn, the index of the closest ref
+		uknmindist = np.min(dists, axis=0) # The corresponding distances
+		uknkeepers = uknmindist < refrad
+		
+		matchuknstars = []
+		matchrefstars = []
+		for i in range(len(uknkeepers)):
+			if uknkeepers[i] == True:
+				matchuknstars.append(uknstars[i])
+				matchrefstars.append(refstars[uknmindistindexes[i]])
+	
+		self.fitstars(matchuknstars, matchrefstars)
 
 
 
@@ -473,18 +524,13 @@ def ccworder(a):
 
 	
 
-def makequads(starlist, plot=True):
+def makequads(starlist, n=10, plot=False):
 	"""
 	Give me a list, I return a list of some quads. This is the magic kitchen recipe...
 	
 	Some big quads covering the entire field first
 	Some quads about half of the field
 	Some quads about a fourth of the field
-	
-	
-	a func that gives the transform, given two mathching quads
-	a func that tests a match by transforming stars
-	
 	"""
 	if plot:
 		import matplotlib.pyplot as plt
@@ -503,8 +549,8 @@ def makequads(starlist, plot=True):
 	"""
 	
 	# All combis among the n brightest stars :
-	n = 15
-	print "Building %i quads ..." % (math.factorial(n)/(math.factorial(n-4)*math.factorial(4)))
+	#n = 15
+	#print "Building %i quads ..." % (math.factorial(n)/(math.factorial(n-4)*math.factorial(4)))
 	
 	sortedstars = sortstarlistbyflux(starlist)[0:n]
 	#print len(itertools.combinations(sortedstars, 4))
@@ -552,31 +598,30 @@ def makequads(starlist, plot=True):
 	return quadlist
 	
 
-def proposecand(uknquadlist, refquadlist):
+def proposecands(uknquadlist, refquadlist, n=5):
 	"""
-	The core function that identifies similar quads between the unknown image and a reference.
+	Function that identifies similar quads between the unknown image and a reference.
 	"""
-	
-	refhashs = np.array([refquad.hash for refquad in refquadlist])
-	
-	
-	#print refhashs
-	
-	for i in range(len(uknquadlist)):
-		
-		uknhash = np.array(uknquadlist[i].hash)
-		dists = np.sum((refhashs - uknhash)**2, axis=1)
-		order = np.argsort(dists)
-		
-		refbest = refquadlist[order[0]]
-		bestdist = dists[order[0]]
-		
-		#print uknquadlist[i]
-		#print refbest
-		#print bestdist
-		
-		return (uknquadlist[i], refbest)
 
+	uknhashs = np.array([quad.hash for quad in uknquadlist])	
+	refhashs = np.array([quad.hash for quad in refquadlist])
+	#print "Unknown quads   : ", uknhashs.shape[0]
+	#print "Reference quads : ", refhashs.shape[0]
+	
+	# Brute force...
+	dists = scipy.spatial.distance.cdist(refhashs, uknhashs)
+	uknmindistindexes = np.argmin(dists, axis=0) # For each ukn, the index of the closest ref
+	uknmindist = np.min(dists, axis=0) # The corresponding distances
+	uknbestindexes = np.argsort(uknmindist)
+	
+	candlist = []
+	for i in range(n):
+		cand = [uknquadlist[uknbestindexes[i]], refquadlist[uknmindistindexes[uknbestindexes[i]]]]
+		candlist.append(cand)
+		#print uknmindist[uknbestindexes[i]]
+	
+	return candlist
+	
 
 def quadtrans(uknquad, refquad):
 	"""
@@ -587,131 +632,31 @@ def quadtrans(uknquad, refquad):
 	return t
 
 
-def checktrans(uknstarlist, refstarlist, trans, refrad=2.0, plot=True):
-	"""
-	We apply the trans to the uknstarlist, and check if there is correspondance with the refstarlist.
-	"""
-	import scipy.spatial.distance as distance
-	
-	ukn = listtoarray(uknstarlist)
-	ref = listtoarray(refstarlist)
-	
-	A = np.array([[trans[0], -trans[1]], [trans[1], trans[0]]])
-	b = np.array([trans[2], trans[3]])
-	
-	# This can be made faster :
-	transuknlist = []
-	for i in range(len(uknstarlist)):
-		transuknlist.append(np.dot(A, ukn[i]) + b)
-	transukn = np.array(transuknlist)
-	
-	print "Unknown stars   : ", ukn.shape[0]
-	print "Reference stars : ", ref.shape[0]
-	
-	mindists = np.min(distance.cdist(ref, transukn), axis=0)
-	
-	nbmatch = np.sum(mindists < refrad)
-	print "Matching stars  : ", nbmatch
-	
-	#print len(mindists)
-	
-	exit()
-	
-	
-	#distorder = np.argmin(dists)
-	#print distorder
-	
-	
-	#dists = transukn - ref
-	#print dists
-	
-	
-	
-	if plot:
-		import matplotlib.pyplot as plt
-		#import matplotlib.patches as patches
-		#from matplotlib.collections import PatchCollection
-
-		plt.plot(ref[:,0], ref[:,1], marker=".", ls="none", color="green")
-		plt.plot(transukn[:,0], transukn[:,1], marker=",", ls="none", color="red")
-		
-		ax = plt.gca()
-
-		#for quad in quadlist:
-		#	polycorners = listtoarray(quad.stars)
-		#	polycorners = ccworder(polycorners)
-		#	plt.fill(polycorners[:,0], polycorners[:,1], alpha=0.3, ec="none")
-	
-		#(xmin, xmax, ymin, ymax) = area(starlist)
-		#plt.xlim(xmin, xmax)
-		#plt.ylim(ymin, ymax)
-		ax.set_aspect('equal', 'datalim')
-		plt.show()
-
-
-def findtransform(starlist1, starlist2):
-	"""
-	starlist1 and starlist2 "correspond", element by element. This function returns the 
-	matrix transform that makes this match as good as possible.
-	"""
-	
-	"""
-	x = listtoarray(starlist1).transpose()
-	y = listtoarray(starlist2).transpose()
-	assert y.shape == x.shape
-	
-	x = np.vstack((x,np.ones(x.shape[1]))).transpose()
-	y = np.vstack((y,np.ones(y.shape[1]))).transpose()
-	
-	
-	correlation_matrix = np.dot(np.transpose(x), y)
-	v, s, w_tr = np.linalg.svd(correlation_matrix)
-	#is_reflection = (numpy.linalg.det(v) * numpy.linalg.det(w_tr)) < 0.0
-	#if is_reflection:
-		#v[:,-1] = -v[:,-1]
-	#return numpy.dot(v, w_tr)
-	print np.dot(v, w_tr)
-	"""
-	
-	
-	"""
-	mx = mean(fp[:2], axis=1)
-	maxstd = max(std(fp[:2], axis=1))
-	C1 = diag([1/maxstd, 1/maxstd, 1]) 
-	C1[0][2] = -m[0]/maxstd
-	C1[1][2] = -m[1]/maxstd
-	fp_cond = dot(C1,fp)
-	
-	#-to points-
-	m = mean(tp[:2], axis=1)
-	C2 = C1.copy() #must use same scaling for both point sets
-	C2[0][2] = -m[0]/maxstd
-	C2[1][2] = -m[1]/maxstd
-	tp_cond = dot(C2,tp)
-	
-	#conditioned points have mean zero, so translation is zero
-	A = concatenate((fp_cond[:2],tp_cond[:2]), axis=0)
-	U,S,V = linalg.svd(A.T)
-	
-	#create B and C matrices as Hartley-Zisserman (2:nd ed) p 130.
-	tmp = V[:2].T
-	B = tmp[:2]
-	C = tmp[2:4]
-	
-	tmp2 = concatenate((dot(C,linalg.pinv(B)),zeros((2,1))), axis=1) 
-	H = vstack((tmp2,[0,0,1]))
-	
-	#decondition
-	H = dot(linalg.inv(C2),dot(H,C1))
-	
-	return H / H[2][2]
-	"""
-		
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+################################################################################################################################
 
 
 

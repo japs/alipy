@@ -2,24 +2,26 @@
 import pysex
 import glob
 #import numpy as np
-import matplotlib.pyplot as plt
-import star
+#import matplotlib.pyplot as plt
+#import star
+
+import alipy
+
 
 imagepaths = glob.glob("images/*.fits")
 
+cats = [pysex.run(ip, params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'], keepcat=True, rerun=False, catdir="cats") for ip in imagepaths]
+
+refcat = cats[0]
+
+alipy.run(refcat, cats)
 
 
-refcat = pysex.run("images/ECAM.fits", params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'],
-	keepcat=True, rerun=False, catdir="cats"
-	)
 
-ukncat = pysex.run("images/C2.fits", params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'],
-	keepcat=True, rerun=False, catdir="cats"
-	)
+exit()
 
-
-refstars = star.readsexcat(refcat, verbose=False)
-uknstars = star.readsexcat(ukncat, verbose=False)
+#refstars = star.readsexcat(refcat, verbose=False)
+#uknstars = star.readsexcat(ukncat, verbose=False)
 
 """
 fourstars = star.sortstarlistbyflux(stars)[0:4]
@@ -34,14 +36,20 @@ print star.Quad([fourstars[2], fourstars[1], fourstars[3], fourstars[0]])
 
 #stars = star.sortstarlistbyflux(stars)[0:100]
 
-refquads = star.makequads(refstars, plot=False)
-uknquads = star.makequads(uknstars, plot=False)
+uknquads = star.makequads(uknstars, n=10, plot=False)
+refquads = star.makequads(refstars, n=15, plot=False)
 
-(uknquad, refquad) = star.proposecand(uknquads, refquads)
+cands = star.proposecands(uknquads, refquads)
 
-trans = star.quadtrans(uknquad, refquad)
-
-print trans
+for cand in cands:
+	trans = star.quadtrans(*cand)
+	#print trans
+	#print trans.teststars(uknstars, refstars)
+	print trans
+	print trans.teststars(uknstars, refstars)
+	trans.refinestars(uknstars, refstars)
+	print trans
+	print trans.teststars(uknstars, refstars)
 
 #star.checktrans(uknstars, refstars, trans)
 #star.checktrans(uknquad.stars, refquad.stars, trans)
