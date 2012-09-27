@@ -39,9 +39,11 @@ uknquads = star.makequads(uknstars, plot=False)
 
 (uknquad, refquad) = star.proposecand(uknquads, refquads)
 
-trans = star.findquadtrans(uknquad, refquad)
+trans = star.quadtrans(uknquad, refquad)
 
-star.checktrans(uknstars, refstars, trans)
+print trans
+
+#star.checktrans(uknstars, refstars, trans)
 #star.checktrans(uknquad.stars, refquad.stars, trans)
 
 

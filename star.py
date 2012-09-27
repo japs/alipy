@@ -9,6 +9,9 @@ import numpy as np
 import operator # For sorting
 import copy
 import itertools
+import scipy.linalg
+
+
 
 class Star:
 	"""
@@ -99,7 +102,24 @@ def listtoarray(starlist):
 	First index is star, second index is x or y
 	"""
 	return np.array([star.coords() for star in starlist])
-
+	
+	
+def area(starlist, border=0.01):
+	"""
+	Returns the area covered by the stars.
+	Border is relative to max-min
+	"""
+	a = listtoarray(starlist)
+	(xmin, xmax) = (np.min(a[:,0]), np.max(a[:,0]))
+	(ymin, ymax) = (np.min(a[:,1]), np.max(a[:,1]))
+	xw = xmax - xmin
+	yw = ymax - ymin
+	xmin = xmin - border*xw
+	xmax = xmax + border*xw
+	ymin = ymin - border*yw
+	ymax = ymax + border*yw
+	return np.array([xmin, xmax, ymin, ymax])
+	
 
 def readmancat(mancatfilepath, verbose="True"):
 	"""
@@ -275,7 +295,8 @@ def sortstarlistby(starlist, measure):
 
 
 
-class Transform:
+
+class SimpleTransform:
 	"""
 	Represents an affine transformation consisting of rotation, isotropic scaling, and shift.
 	[x', y'] = [[a -b], [b a]] * [x, y] + [c d]
@@ -294,10 +315,10 @@ class Transform:
 		"""
 		The CCW rotation angle, in degrees
 		"""
-		return math.atan2(self.v[1], self.v[0]) * (180.0/math.pi) % 360.0
+		return math.atan2(self.v[1], self.v[0]) * (180.0/math.pi)# % 360.0
 	
 	def __str__(self):
-		return "Rotation [deg], Scaling %.3f" % (self.getrotation(), self.getscaling())
+		return "Rotation %+7.4f [deg], Scaling %7.4f" % (self.getrotation(), self.getscaling())
 		
 	
 	def apply(self, (x, y)):
@@ -313,9 +334,35 @@ class Transform:
 			self.applystar(star)
 	
 	
-
-
-
+	def fitstars(self, uknstars, refstars):
+		"""
+		I set the transform so that it puts the unknown stars (uknstars) onto the refstars.
+		If you supply only two stars, this is using linalg.solve()
+		If you supply more stars, we use linear least squares, i.e. minimize the 2D error.
+		
+		Formalism inspired by :
+		http://math.stackexchange.com/questions/77462/
+		"""
+		
+		assert len(uknstars) == len(refstars)
+		
+		# ukn * x = ref
+		# x is the transform (a, b, c, d)
+		
+		ref = np.hstack(listtoarray(refstars)) # a 1D vector of lenth 2n
+		
+		uknlist = []
+		for star in uknstars:
+			uknlist.append([star.x, -star.y, 1, 0])
+			uknlist.append([star.y, star.x, 0, 1])
+		ukn = np.vstack(np.array(uknlist)) # a matrix
+		
+		if len(uknstars) == 2:
+			trans = scipy.linalg.solve(ukn, ref)
+		else:
+			trans = scipy.linalg.lstsq(ukn, ref)[0]
+		
+		self.v = np.asarray(trans)
 
 
 
@@ -362,7 +409,7 @@ class Quad:
 		c = b*A.y - a*A.x 
 		d = - (b*A.x + a*A.y)
 		
-		t = Transform((a, b, c, d))
+		t = SimpleTransform((a, b, c, d))
 		
 		# Test
 		#print t.apply((A.x, A.y))
@@ -417,27 +464,13 @@ def mindist(fourstars):
 
 
 def ccworder(a):
-	#Sorting a coordinate array CCW to plot polygons ...
+	"""
+	Sorting a coordinate array CCW to plot polygons ...
+	"""
 	ac = a - np.mean(a, 0)
 	indices = np.argsort(np.arctan2(ac[:, 1], ac[:, 0]))
 	return a[indices]
 
-def area(starlist, border=0.01):
-	"""
-	Returns the area covered by the stars.
-	Border is relative to max-min
-	"""
-	a = listtoarray(starlist)
-	(xmin, xmax) = (np.min(a[:,0]), np.max(a[:,0]))
-	(ymin, ymax) = (np.min(a[:,1]), np.max(a[:,1]))
-	xw = xmax - xmin
-	yw = ymax - ymin
-	xmin = xmin - border*xw
-	xmax = xmax + border*xw
-	ymin = ymin - border*yw
-	ymax = ymax + border*yw
-	
-	return (xmin, xmax, ymin, ymax)
 	
 
 def makequads(starlist, plot=True):
@@ -545,36 +578,14 @@ def proposecand(uknquadlist, refquadlist):
 		return (uknquadlist[i], refbest)
 
 
-def findquadtrans(uknquad, refquad):
+def quadtrans(uknquad, refquad):
 	"""
-	Quickly return a guess geometric transform, using stars A and B from the quad.
-	return the geometric transform that makes the stars of uknquad match to refquad
-	
-	We want : ref = [[a -b], [b a]] * ukn + [c d]
-	ref = prime = p
-
-	To make it a bit general, I'll try to do this nicely.
-	http://math.stackexchange.com/questions/77462/
+	Quickly return a transform estimated from the stars A and B of two quads.
 	"""
-	import scipy.linalg as linalg
-	
-	# ukn * x = ref
-	# x is the transform (a, b, c, d)
-	
-	ref = np.hstack(listtoarray(refquad.stars[:2])) # a 1D vector of lenth 2n
-	
-	uknlist = []
-	for star in uknquad.stars[:2]:
-		uknlist.append([star.x, -star.y, 1, 0])
-		uknlist.append([star.y, star.x, 0, 1])
-	ukn = np.vstack(np.array(uknlist))
-	
+	t = SimpleTransform()
+	t.fitstars(uknquad.stars[:2], refquad.stars[:2])
+	return t
 
-	trans = linalg.solve(ukn, ref) # for this replace the 4 by 2 above, ie only stars A and B.
-	#x = linalg.lstsq(ukn, ref)[0]
-	
-	return trans
-	
 
 def checktrans(uknstarlist, refstarlist, trans, refrad=2.0, plot=True):
 	"""
