@@ -6,7 +6,8 @@ Requirements
 ------------
 
 We need python, numpy, scipy, matplotlib, and :
- * `Source Extractor <www.astromatic.net/software/sextractor>`_ by Bertin & Arnouts
+ * `Source Extractor <http://www.astromatic.net/software/sextractor>`_ by Bertin & Arnouts
+ * `astroasciidata <http://www.stecf.org/software/PYTHONtools/astroasciidata/>`_
  * `f2n <http://obswww.unige.ch/~tewes/f2n_dot_py/>`_ (optional, but very useful to make control visualizations)
 
 
