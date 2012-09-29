@@ -10,6 +10,7 @@ import copy
 import itertools
 import scipy.spatial
 
+import star
 
 
 class Quad:
@@ -51,7 +52,7 @@ class Quad:
 		c = b*A.y - a*A.x 
 		d = - (b*A.x + a*A.y)
 		
-		t = SimpleTransform((a, b, c, d))
+		t = star.SimpleTransform((a, b, c, d))
 		
 		# Test
 		#print t.apply((A.x, A.y))
@@ -105,102 +106,53 @@ def mindist(fourstars):
 	return np.min(dists)
 
 
-def ccworder(a):
-	"""
-	Sorting a coordinate array CCW to plot polygons ...
-	"""
-	ac = a - np.mean(a, 0)
-	indices = np.argsort(np.arctan2(ac[:, 1], ac[:, 0]))
-	return a[indices]
 
-	
-
-def makequads(starlist, n=10, plot=False, verbose=True):
+def makequads1(starlist, n=7, verbose=True):
 	"""
-	Give me a list, I return a list of some quads. This is the magic kitchen recipe...
+	First trivial quad maker.
+	Makes combis of the n brightest stars.
 	"""
-
 	quadlist = []
-	sortedstars = sortstarlistbyflux(starlist)
-	
-	if verbose:
-		print "Building quads for %i stars ..." % len(starlist)
-	
-	# We start by combis of the brightest ones :
-	
-	for fourstars in itertools.combinations(sortedstars[:8], 4):
+	sortedstars = star.sortstarlistbyflux(starlist)
+
+	for fourstars in itertools.combinations(sortedstars[:n], 4):
 		if mindist(fourstars) > 50.0:
 				quadlist.append(Quad(fourstars))	
 	
-	
-	# Bright quads in subareas :
-	(xmin, xmax, ymin, ymax) = area(sortedstars)
-	
-	f = 3
-	r = 1.5*max(xmax - xmin, ymax - ymin)/f
-	for xc in np.linspace(xmin, xmax, f+2):
-		for yc in np.linspace(ymin, ymax, f+2):
-			cstar = Star(x=xc, y=yc)
-			das = cstar.distanceandsort(sortedstars[:200])
-			#closest = [s["star"] for s in das[0:4]]
-			brightestwithinr = sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[0:5]
-			for fourstars in itertools.combinations(brightestwithinr, 4):
-				if mindist(fourstars) > 10.0:
-					quadlist.append(Quad(fourstars))
-		
-		
-	f = 6
-	r = 1.5*max(xmax - xmin, ymax - ymin)/f
-	for xc in np.linspace(xmin, xmax, f+2):
-		for yc in np.linspace(ymin, ymax, f+2):
-			cstar = Star(x=xc, y=yc)
-			das = cstar.distanceandsort(sortedstars[:200])
-			#closest = [s["star"] for s in das[0:4]]
-			brightestwithinr = sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[0:5]
-			for fourstars in itertools.combinations(brightestwithinr, 4):
-				if mindist(fourstars) > 10.0:
-					quadlist.append(Quad(fourstars))
-
-	"""
-	f = 12
-	r = 2.0*max(xmax - xmin, ymax - ymin)/f
-	for xc in np.linspace(xmin, xmax, f+2):
-		for yc in np.linspace(ymin, ymax, f+2):
-			cstar = Star(x=xc, y=yc)
-			das = cstar.distanceandsort(sortedstars[:200])
-			#closest = [s["star"] for s in das[0:4]]
-			brightestwithinr = sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[0:4]
-			for fourstars in itertools.combinations(brightestwithinr, 4):
-				if mindist(fourstars) > 10.0:
-					quadlist.append(Quad(fourstars))
-	"""
-	
-	
 	if verbose:
-		print "Done, %i quads" % (len(quadlist))
-
-	if plot:
-		import matplotlib.pyplot as plt
-		import matplotlib.patches as patches
-		from matplotlib.collections import PatchCollection
-	
-		a = listtoarray(starlist)
-		plt.plot(a[:,0], a[:,1], marker=",", ls="none", color="black")
-		ax = plt.gca()
-
-		for quad in quadlist:
-			polycorners = listtoarray(quad.stars)
-			polycorners = ccworder(polycorners)
-			plt.fill(polycorners[:,0], polycorners[:,1], alpha=0.1, ec="none")
-	
-		(xmin, xmax, ymin, ymax) = area(starlist)
-		plt.xlim(xmin, xmax)
-		plt.ylim(ymin, ymax)
-		ax.set_aspect('equal', 'datalim')
-		plt.show()
-	
+		print "Made %4i quads from %4i stars (combi n=%i)" % (len(quadlist), len(starlist), n)
+		
 	return quadlist
+
+
+
 	
+def makequads2(starlist, f=3.0, n=6, verbose=True):
+	"""
+	Similar, but fxf in subareas f times smaller than the full frame.
+	"""
+	quadlist = []
+	sortedstars = star.sortstarlistbyflux(starlist)
+	(xmin, xmax, ymin, ymax) = star.area(sortedstars)
+	
+	r = 1.5 * max(xmax - xmin, ymax - ymin) / f
+	
+	for xc in np.linspace(xmin, xmax, f+2)[1:-1]:
+		for yc in np.linspace(ymin, ymax, f+2)[1:-1]:
+			cstar = star.Star(x=xc, y=yc)
+			das = cstar.distanceandsort(sortedstars)
+			#closest = [s["star"] for s in das[0:4]]
+			brightestwithinr = star.sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[:n]
+			for fourstars in itertools.combinations(brightestwithinr, 4):
+				if mindist(fourstars) > 20.0:
+					quadlist.append(Quad(fourstars))
+			
+	if verbose:
+		print "Made %4i quads from %4i stars (combi sub f=%.1f n=%i)" % (len(quadlist), len(starlist), f, n)
+
+	return quadlist
+
+
 
 def proposecands(uknquadlist, refquadlist, n=5):
 	"""

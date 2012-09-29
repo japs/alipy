@@ -1,6 +1,8 @@
 import star
 import pysex
-
+import quad
+import os
+import numpy as np
 	
 
 class ImgCat:
@@ -20,52 +22,117 @@ class ImgCat:
 		"""
 		self.file = file
 		self.cat = cat
-		self.quads = []
+		self.starlist = []
+		self.quadlist = []
 		self.transform = None
 		
-		self.xlim = (0, 100)
-		self.ylim = (0, 100)
+		self.xlim = (0, 0)
+		self.ylim = (0, 0)
+	
+	def __str__(self):
+		return "%20s: approx %4i x %4i, %4i stars, %4i quads" % (os.path.basename(self.file),
+			self.xlim[1] - self.xlim[0], self.ylim[1] - self.ylim[0],
+			len(self.starlist), len(self.quadlist))
 	
 	def makecat(self, rerun=False):
-		self.cat = pysex.run(self.file, params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'], keepcat=True, rerun=rerun, catdir="alipy_cats")
+		self.cat = pysex.run(self.file, conf_args={'DETECT_THRESH':3.0, 'ANALYSIS_THRESH':3.0, 'DETECT_MINAREA':10,
+		'PIXEL_SCALE':1.0, 'SEEING_FWHM':2.0, "FILTER":"Y"},
+		params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'],
+		keepcat=True, rerun=rerun, catdir="alipy_cats")
 
 	
 	def makestarlist(self):
 		if self.cat:
-			self.starlist = star.readsexcat(self.cat, verbose=True, maxflag = 2, posflux = True, propfields=[])
+			self.starlist = star.readsexcat(self.cat, verbose=True)
+			(xmin, xmax, ymin, ymax) = star.area(self.starlist, border=0.01)
+			self.xlim = (xmin, xmax)
+			self.ylim = (ymin, ymax)
 		else:
 			raise RuntimeError("No cat : call makecat first !")
 	
 	
-	def makequads(self, add=True, **kwargs):
+	def makequadlist(self, add=True, **kwargs):
 		"""
 		:param add: If True, I add the new quads to the existing ones.
 		:type add: boolean
 		"""
 		if not add:
-			self.quads = []
-		self.quads.extend(makequads(starlist, **kwargs)
+			self.quadlist = []
+		#self.quadlist.extend(quad.makequads1(self.starlist, n=6))
+		#self.quadlist.extend(quad.makequads2(self.starlist, f=3, n=6))
+		self.quadlist.extend(quad.makequads2(self.starlist, f=6, n=5))
 		
 	
-	def showstarlist(self, filename=None):
+	def showstars(self):
+		"""
+		Uses f2n to write a png image with circled stars next to the FITS file.
+		"""
 		try:
 			import f2n
 		except ImportError:
 			print "Couldn't import f2n -- install it !"
 			return
 		
-		myimage = f2n.fromfits(self.file)
+		myimage = f2n.fromfits(self.file, verbose=False)
 		myimage.setzscale("auto", "auto")
 		myimage.makepilimage("log", negative = False)
 		#myimage.upsample()
-		myimage.drawstarlist(self.starlist, r=3)
-		myimage.writetitle(os.path.filename(self.file))
+		myimage.drawstarlist(self.starlist, r=8)
+		myimage.writetitle(os.path.basename(self.file))
 		#myimage.writeinfo(["This is a demo", "of some possibilities", "of f2n.py"], colour=(255,100,0))
 		myimage.tonet(self.file + ".png")
 
 	
 	
-	def showquads(self, filename=None):
-		pass
+	def showquads(self, show=False, flux=True):
+		"""
+		Uses matplotlib to write/show the quads.
+		"""
+		import matplotlib.pyplot as plt
+		#import matplotlib.patches
+		#import matplotlib.collections
+		
+		plt.figure(figsize=(10, 10))
+		
+		a = star.listtoarray(self.starlist, full=True)
+		if flux:
+			f = np.log10(a[:,2])
+			fmax = np.max(f)
+			fmin = np.min(f)
+			f = 1.0 + 8.0 * (f-fmin)/(fmax-fmin)
+			plt.scatter(a[:,0], a[:,1], s=f, color="black")
+		else:
+			plt.plot(a[:,0], a[:,1], marker=",", ls="none", color="black")
+		
+		for quad in self.quadlist:
+			polycorners = star.listtoarray(quad.stars)
+			polycorners = ccworder(polycorners)
+			plt.fill(polycorners[:,0], polycorners[:,1], alpha=0.03, ec="none")
+	
+		plt.xlim(self.xlim)
+		plt.ylim(self.ylim)
+		plt.title(os.path.basename(self.file))
+		plt.xlabel("x")
+		plt.ylabel("y")
+		
+		
+		ax = plt.gca()
+		ax.set_aspect('equal', 'datalim')
+	
+
+		if show:
+			plt.show()
+		else:
+			plt.savefig(self.file + ".quads.png")
+
+def ccworder(a):
+	"""
+	Sorting a coordinate array CCW to plot polygons ...
+	"""
+	ac = a - np.mean(a, 0)
+	indices = np.argsort(np.arctan2(ac[:, 1], ac[:, 0]))
+	return a[indices]
+
+
 		
 		

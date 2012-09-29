@@ -55,11 +55,18 @@ class Star:
 		"""
 		return "%10s : (%8.2f,%8.2f) | %12.2f | %5.2f %5.2f" % (self.name, self.x, self.y, self.flux, self.fwhm, self.elon)
 
-	def coords(self):
+	def coords(self, full=False):
 		"""
 		Returns the coords in form of an array.
+		
+		:param full: If True, I also include flux, fwhm, elon
+		:type full: boolean
+
 		"""
-		return np.array([self.x, self.y])
+		if full:
+			return np.array([self.x, self.y, self.flux, self.fwhm, self.elon])	
+		else:
+			return np.array([self.x, self.y])
 
 	def distance(self, otherstar):
 		"""
@@ -101,12 +108,16 @@ def printlist(starlist):
 	for source in starlist:
 		print source
 
-def listtoarray(starlist):
+def listtoarray(starlist, full=False):
 	"""
 	Transforms the starlist into a 2D numpy array for fast manipulations.
 	First index is star, second index is x or y
+	
+	:param full: If True, I also include flux, fwhm, elon
+	:type full: boolean
+	
 	"""
-	return np.array([star.coords() for star in starlist])
+	return np.array([star.coords(full=full) for star in starlist])
 	
 	
 def area(starlist, border=0.01):
@@ -190,7 +201,7 @@ def readmancat(mancatfilepath, verbose="True"):
 	return table
 
 
-def readsexcat(sexcat, verbose=True, maxflag = 2, posflux = True, propfields=[]):
+def readsexcat(sexcat, verbose=True, maxflag = 3, posflux = True, minfwhm=2.0, propfields=[]):
 	"""
 	sexcat is either a string (path to a file), or directly an asciidata catalog object as returned by pysex
 	
@@ -207,6 +218,9 @@ def readsexcat(sexcat, verbose=True, maxflag = 2, posflux = True, propfields=[])
 	maxflag : maximum value of the FLAGS that you still want to keep. Sources with higher values will be skipped.
 	FLAGS == 0 : all is fine
 	FLAGS == 2 : the flux is blended with another one; further info in the sextractor manual.
+	FLAGS == 4	At least one pixel of the object is saturated (or very close to)
+	FLAGS == 8	The object is truncated (too close to an image boundary)
+	FLAGS is the sum of these ...
 	
 	posflux : if True, only stars with positive FLUX_AUTO are included.
 	
@@ -256,6 +270,9 @@ def readsexcat(sexcat, verbose=True, maxflag = 2, posflux = True, propfields=[])
 				continue
 			flux = mycat['FLUX_AUTO'][i]
 			if posflux and (flux < 0.0) :
+				continue
+			fwhm = mycat['FWHM_IMAGE'][i]
+			if float(fwhm) <= minfwhm:
 				continue
 			
 			props = dict([[propfield, mycat[propfield][i]] for propfield in propfields])
