@@ -127,15 +127,15 @@ def makequads1(starlist, n=7, verbose=True):
 
 
 	
-def makequads2(starlist, f=3.0, n=6, verbose=True):
+def makequads2(starlist, f=5.0, n=6, verbose=True):
 	"""
-	Similar, but fxf in subareas f times smaller than the full frame.
+	Similar, but fxf in subareas roughly f times smaller than the full frame.
 	"""
 	quadlist = []
 	sortedstars = star.sortstarlistbyflux(starlist)
 	(xmin, xmax, ymin, ymax) = star.area(sortedstars)
 	
-	r = 1.5 * max(xmax - xmin, ymax - ymin) / f
+	r = 2.0 * max(xmax - xmin, ymax - ymin) / f
 	
 	for xc in np.linspace(xmin, xmax, f+2)[1:-1]:
 		for yc in np.linspace(ymin, ymax, f+2)[1:-1]:
@@ -153,14 +153,34 @@ def makequads2(starlist, f=3.0, n=6, verbose=True):
 	return quadlist
 
 
+def removeduplicates(quadlist, verbose=True):
+	"""
+	Returns a quadlist without quads with identical hashes...
+	"""
+	hasharray = np.array([q.hash for q in quadlist])
+	
+	order = np.lexsort(hasharray.T)
+	hasharray = hasharray[order]
+	#diff = np.diff(hasharray, axis=0)
+	diff = np.fabs(np.diff(hasharray, axis=0))
+	#diff = np.sum(diff, axis=1)
+	ui = np.ones(len(hasharray), 'bool')
+	ui[1:] = (diff >= 0.000001).any(axis=1)
+	#print hasharray[ui==False]
+	if verbose:
+		print "Removing %i/%i duplicates" % (len(quadlist) - np.sum(ui), len(quadlist))
+	
+	return [quad for (quad, u) in zip(quadlist, ui) if u == True] 
+	
+
 
 def proposecands(uknquadlist, refquadlist, n=5):
 	"""
 	Function that identifies similar quads between the unknown image and a reference.
 	"""
 
-	uknhashs = np.array([quad.hash for quad in uknquadlist])	
-	refhashs = np.array([quad.hash for quad in refquadlist])
+	uknhashs = np.array([q.hash for q in uknquadlist])	
+	refhashs = np.array([q.hash for q in refquadlist])
 	#print "Unknown quads   : ", uknhashs.shape[0]
 	#print "Reference quads : ", refhashs.shape[0]
 	
@@ -183,7 +203,7 @@ def quadtrans(uknquad, refquad):
 	"""
 	Quickly return a transform estimated from the stars A and B of two quads.
 	"""
-	t = SimpleTransform()
+	t = star.SimpleTransform()
 	t.fitstars(uknquad.stars[:2], refquad.stars[:2])
 	return t
 

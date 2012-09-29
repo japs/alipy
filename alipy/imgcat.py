@@ -3,7 +3,9 @@ import pysex
 import quad
 import os
 import numpy as np
-	
+import scipy.ndimage
+import pyfits
+
 
 class ImgCat:
 	"""
@@ -21,10 +23,17 @@ class ImgCat:
 		
 		"""
 		self.file = file
+		
+		(imgdir, filename) = os.path.split(file)
+		(common, ext) = os.path.splitext(filename)
+		self.basepath = os.path.join("alipy_out", common)
+		if not os.path.isdir("alipy_out"):
+			os.makedirs("alipy_out")
+		
 		self.cat = cat
 		self.starlist = []
 		self.quadlist = []
-		self.transform = None
+		self.transform = star.SimpleTransform()
 		
 		self.xlim = (0, 0)
 		self.ylim = (0, 0)
@@ -41,9 +50,9 @@ class ImgCat:
 		keepcat=True, rerun=rerun, catdir="alipy_cats")
 
 	
-	def makestarlist(self):
+	def makestarlist(self, n=300):
 		if self.cat:
-			self.starlist = star.readsexcat(self.cat, verbose=True)
+			self.starlist = star.sortstarlistbyflux(star.readsexcat(self.cat, verbose=True))[:n]
 			(xmin, xmax, ymin, ymax) = star.area(self.starlist, border=0.01)
 			self.xlim = (xmin, xmax)
 			self.ylim = (ymin, ymax)
@@ -58,14 +67,16 @@ class ImgCat:
 		"""
 		if not add:
 			self.quadlist = []
-		#self.quadlist.extend(quad.makequads1(self.starlist, n=6))
-		#self.quadlist.extend(quad.makequads2(self.starlist, f=3, n=6))
+		self.quadlist.extend(quad.makequads1(self.starlist, n=7))
+		#self.quadlist.extend(quad.makequads2(self.starlist, f=3, n=5))
 		self.quadlist.extend(quad.makequads2(self.starlist, f=6, n=5))
+		
+		self.quadlist = quad.removeduplicates(self.quadlist)
 		
 	
 	def showstars(self):
 		"""
-		Uses f2n to write a png image with circled stars next to the FITS file.
+		Uses f2n to write a png image with circled stars.
 		"""
 		try:
 			import f2n
@@ -74,13 +85,14 @@ class ImgCat:
 			return
 		
 		myimage = f2n.fromfits(self.file, verbose=False)
+		myimage.rebin(int(myimage.xb/1000.0))
 		myimage.setzscale("auto", "auto")
 		myimage.makepilimage("log", negative = False)
 		#myimage.upsample()
 		myimage.drawstarlist(self.starlist, r=8)
 		myimage.writetitle(os.path.basename(self.file))
 		#myimage.writeinfo(["This is a demo", "of some possibilities", "of f2n.py"], colour=(255,100,0))
-		myimage.tonet(self.file + ".png")
+		myimage.tonet(self.basepath + "_stars.png")
 
 	
 	
@@ -111,7 +123,7 @@ class ImgCat:
 	
 		plt.xlim(self.xlim)
 		plt.ylim(self.ylim)
-		plt.title(os.path.basename(self.file))
+		plt.title(str(self))
 		plt.xlabel("x")
 		plt.ylabel("y")
 		
@@ -123,7 +135,35 @@ class ImgCat:
 		if show:
 			plt.show()
 		else:
-			plt.savefig(self.file + ".quads.png")
+			plt.savefig(self.basepath + "_quads.png")
+
+
+
+	def affineremap(self, shape, filepath=None):
+		"""
+		Apply the simple affine transform to the image and saves the result as FITS.
+		If filename is None, image is saved next to original one.
+		Uses only scipy.ndimage, no IRAF here.
+		
+		:param shape: Output shape (width, height) 
+		:type shape: tuple
+		
+		"""
+		inv = self.transform.inverse()
+		(matrix, offset) = inv.matrixform()
+		#print matrix, offset
+		
+		data, hdr = fromfits(self.file, hdu = 0, verbose = True)
+		data = scipy.ndimage.interpolation.affine_transform(data, matrix, offset=offset, output_shape = shape)
+		
+		if not filepath:
+			#(imgdir, filename) = os.path.split(self.file)
+			#(common, ext) = os.path.splitext(filename)
+			#filepath = os.path.join(imgdir, common + "_affineremap.fits")
+			filepath = self.basepath + "_affineremap.fits"
+		
+		tofits(filepath, data, hdr = None, verbose = True)
+
 
 def ccworder(a):
 	"""
@@ -134,5 +174,47 @@ def ccworder(a):
 	return a[indices]
 
 
-		
+def fromfits(infilename, hdu = 0, verbose = True):
+	"""
+	Reads a FITS file and returns a 2D numpy array of the data.
+	Use hdu to specify which HDU you want (default = primary = 0)
+	"""
+	
+	pixelarray, hdr = pyfits.getdata(infilename, hdu, header=True)
+	pixelarray = np.asarray(pixelarray).transpose()
+	
+	pixelarrayshape = pixelarray.shape
+	if verbose :
+		print "FITS import shape : (%i, %i)" % (pixelarrayshape[0], pixelarrayshape[1])
+		print "FITS file BITPIX : %s" % (hdr["BITPIX"])
+		print "Internal array type :", pixelarray.dtype.name
+	
+	return pixelarray, hdr
+
+def tofits(outfilename, pixelarray, hdr = None, verbose = True):
+	"""
+	Takes a 2D numpy array and write it into a FITS file.
+	If you specify a header (pyfits format, as returned by fromfits()) it will be used for the image.
+	You can give me boolean numpy arrays, I will convert them into 8 bit integers.
+	"""
+	pixelarrayshape = pixelarray.shape
+	if verbose :
+		print "FITS export shape : (%i, %i)" % (pixelarrayshape[0], pixelarrayshape[1])
+
+	if pixelarray.dtype.name == "bool":
+		pixelarray = np.cast["uint8"](pixelarray)
+
+	if os.path.isfile(outfilename):
+		os.remove(outfilename)
+	
+	if hdr == None: # then a minimal header will be created 
+		hdu = pyfits.PrimaryHDU(pixelarray.transpose())
+	else: # this if else is probably not needed but anyway ...
+		hdu = pyfits.PrimaryHDU(pixelarray.transpose(), hdr)
+
+	hdu.writeto(outfilename)
+	
+	if verbose :
+		print "Wrote %s" % outfilename
+
 		

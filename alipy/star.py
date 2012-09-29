@@ -207,20 +207,21 @@ def readsexcat(sexcat, verbose=True, maxflag = 3, posflux = True, minfwhm=2.0, p
 	
 	We read a sextractor catalog with astroasciidata and return a list of stars.
 	Minimal fields that must be present in the catalog :
-		- NUMBER
-		- X_IMAGE
-		- Y_IMAGE
-		- FWHM_IMAGE
-		- ELONGATION
-		- FLUX_AUTO
-		- FLAGS
+
+		* NUMBER
+		* X_IMAGE
+		* Y_IMAGE
+		* FWHM_IMAGE
+		* ELONGATION
+		* FLUX_AUTO
+		* FLAGS
 		
 	maxflag : maximum value of the FLAGS that you still want to keep. Sources with higher values will be skipped.
-	FLAGS == 0 : all is fine
-	FLAGS == 2 : the flux is blended with another one; further info in the sextractor manual.
-	FLAGS == 4	At least one pixel of the object is saturated (or very close to)
-	FLAGS == 8	The object is truncated (too close to an image boundary)
-	FLAGS is the sum of these ...
+		* FLAGS == 0 : all is fine
+		* FLAGS == 2 : the flux is blended with another one; further info in the sextractor manual.
+		* FLAGS == 4	At least one pixel of the object is saturated (or very close to)
+		* FLAGS == 8	The object is truncated (too close to an image boundary)
+		* FLAGS is the sum of these ...
 	
 	posflux : if True, only stars with positive FLUX_AUTO are included.
 	
@@ -344,9 +345,40 @@ class SimpleTransform:
 	
 	def __str__(self):
 		return "Rotation %+9.6f [deg], Scaling %8.6f" % (self.getrotation(), self.getscaling())
+	
+	
+	def inverse(self):
+		"""
+		Returns the inverse transform !
+		"""
+		
+		# To represent affine transformations with matrices, we can use homogeneous coordinates.
+		homo = np.array([
+		[self.v[0], -self.v[1], self.v[2]],
+		[self.v[1],  self.v[0], self.v[3]],
+		[0.0, 0.0, 1.0]
+		])
+		
+		inv = scipy.linalg.inv(homo)
+		#print inv
+		
+		return SimpleTransform((inv[0,0], inv[1,0], inv[0,2], inv[1,2]))
+		
+		
+	
+	def matrixform(self):
+		"""
+		Special output for scipy.ndimage.interpolation.affine_transform
+		Returns (matrix, offset)
+		"""
+		
+		return (np.array([[self.v[0], -self.v[1]], [self.v[1], self.v[0]]]), self.v[2:4])
 		
 	
 	def apply(self, (x, y)):
+		"""
+		Applies the transform to a point (x, y)
+		"""
 		xn = self.v[0]*x -self.v[1]*y + self.v[2]
 		yn = self.v[1]*x +self.v[0]*y + self.v[3]
 		return (xn, yn)
@@ -391,7 +423,7 @@ class SimpleTransform:
 		self.v = np.asarray(trans)
 
 
-	def teststars(self, uknstars, refstars, refrad=2.0):
+	def teststars(self, uknstars, refstars, refrad=5.0, verbose=True):
 		"""
 		We apply the trans to the uknstarlist, and check for correspondance with the refstarlist.
 		Returns the number of uknstars that could be matched to refstars within refrad.
@@ -406,12 +438,13 @@ class SimpleTransform:
 		
 		mindists = np.min(scipy.spatial.distance.cdist(ref, transukn), axis=0)
 		nbmatch = np.sum(mindists < refrad)
-		#print "Matching stars  : ", nbmatch
+		if verbose:
+			print "Tested match on %4i references : OK for %4i/%4i unknown stars (r = %.1f)." % (len(refstars), nbmatch, len(uknstars), refrad)
 		
 		return nbmatch
 		
 		
-	def refinestars(self, uknstars, refstars, refrad=5.0):
+	def refinestars(self, uknstars, refstars, refrad=5.0, verbose=True):
 		"""
 		I refit myself to all matching stars.
 		"""
@@ -432,9 +465,12 @@ class SimpleTransform:
 			if uknkeepers[i] == True:
 				matchuknstars.append(uknstars[i])
 				matchrefstars.append(refstars[uknmindistindexes[i]])
-	
+		if verbose:
+			print "Refining (before / after) :"
+			print self
 		self.fitstars(matchuknstars, matchrefstars)
-
+		if verbose:
+			print self
 
 
 
