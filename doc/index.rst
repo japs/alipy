@@ -3,21 +3,26 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-alipy
-=====
+Welcome to alipy 2
+==================
+
+.. image:: _static/alipy.png
+	:align: center
+
 
 About
 -----
 
-A python module to quickly and automatically align – or identify geometrical transforms between – conventional optical images of a target, using field stars. The images can have different pixel sizes, orientations, pointings and filters.
+This is a python module to quickly identify geometrical transforms between conventional optical astronomical images of a given patch of sky, using only field stars. The images can have different pixel sizes, orientations, pointings and filters.
 
-.. note:: This is personal code... It might be useful (it is for me), but don't expect too much !
+.. note:: alipy is personal code... It might be useful (it is for me, I hope it will be for you), but don't expect too much !
 
 Summary of typical workflow :
- * We run SExtractor (see :doc:`installation`) on the images to get individual star catalogs.
+ * We run SExtractor (see :doc:`installation`) on the images to get individual source catalogs.
  * We identify corresponding asterisms (roughly following `Lang et al. 2010 <http://adsabs.harvard.edu/abs/2010AJ....139.1782L>`_ aka astrometry.net).
- * We use this to align the images, match catalogs, ...
+ * We use this identification to match catalogs, align the images (either directly with scipy, or pyraf geomap/gregister), ...
 
+Last build of this documentation : |today|.
 
 
 Contents

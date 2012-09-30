@@ -162,6 +162,9 @@ def run(refpath, uknpathlist, visu=True, skipsaturated=False, r = 5.0, verbose=T
 		ref.showstars(verbose=verbose)
 	ref.makemorequads(verbose=verbose)
 	
+	
+	transforms = []
+	
 	for uknpath in uknpathlist:
 		
 		if verbose:
@@ -179,15 +182,18 @@ def run(refpath, uknpathlist, visu=True, skipsaturated=False, r = 5.0, verbose=T
 		if visu:
 			ukn.showquads(verbose=verbose)
 			idn.showmatch(verbose=verbose)
-
+		
+		if idn.ok:
+			transforms.append(ukn.transform)
+		else:
+			transforms.append(None)
+				
+		#ukn.affineremap(shape=(2000, 2000), makepng=True)
 	if visu:
 		ref.showquads(verbose=verbose)
-		#if idn.ok:
-			#print 20*"#", "Done with %s" % (uknpath)
-			#print ukn.transform
-			
-			#ukn.affineremap(shape=(2000, 2000), makepng=True)
+		
 	
+	return transforms
 
 
 

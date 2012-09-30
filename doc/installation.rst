@@ -14,5 +14,15 @@ We need python, numpy, scipy, matplotlib, and :
 Download
 --------
 
+Get alipy directly from its public repository::
 
-svn checkout https://svn.epfl.ch/svn/mtewes-public/trunk/alipy2 ./alipy
+	svn checkout https://svn.epfl.ch/svn/mtewes-public/trunk/alipy2 ./alipy
+
+And then,
+::
+
+	cd alipy
+	python setup.py install
+
+	
+More info about the installation : `<http://docs.python.org/distutils/>`_.
