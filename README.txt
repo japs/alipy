@@ -1,19 +1,18 @@
+Todo
+====
 
-http://gitorious.org/pysextractor/
-
-https://svn.epfl.ch/svn/pysex/trunk/
-
-
-individual quad visu
+add doc setup.py
 
 
-todo :
-- need to limit number of stars
-- mecanism to not redo quads of ref 
-- what to do when no ident is found
-- png visu of aligned image
 
+Installation
+============
 
-- quad image for doc website
+Quick :
+python setup.py install
 
+To create a source distribution :
+python setup.py sdist
 
+More info :
+http://docs.python.org/distutils/
