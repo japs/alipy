@@ -26,9 +26,7 @@ class ImgCat:
 		
 		(imgdir, filename) = os.path.split(file)
 		(common, ext) = os.path.splitext(filename)
-		self.basepath = os.path.join("alipy_out", common)
-		if not os.path.isdir("alipy_out"):
-			os.makedirs("alipy_out")
+		self.common = common
 		
 		self.cat = cat
 		self.starlist = []
@@ -50,9 +48,13 @@ class ImgCat:
 		keepcat=True, rerun=rerun, catdir="alipy_cats")
 
 	
-	def makestarlist(self, n=300):
+	def makestarlist(self, skipsaturated=False, n=500):
 		if self.cat:
-			self.starlist = star.sortstarlistbyflux(star.readsexcat(self.cat, verbose=True))[:n]
+			if skipsaturated:
+				maxflag = 3
+			else:
+				maxflag = 7
+			self.starlist = star.sortstarlistbyflux(star.readsexcat(self.cat, maxflag=maxflag, verbose=True))[:n]
 			(xmin, xmax, ymin, ymax) = star.area(self.starlist, border=0.01)
 			self.xlim = (xmin, xmax)
 			self.ylim = (ymin, ymax)
@@ -85,14 +87,16 @@ class ImgCat:
 			return
 		
 		myimage = f2n.fromfits(self.file, verbose=False)
-		myimage.rebin(int(myimage.xb/1000.0))
+		#myimage.rebin(int(myimage.xb/1000.0))
 		myimage.setzscale("auto", "auto")
 		myimage.makepilimage("log", negative = False)
 		#myimage.upsample()
-		myimage.drawstarlist(self.starlist, r=8)
+		myimage.drawstarlist(self.starlist, r=8, autocolour="flux")
 		myimage.writetitle(os.path.basename(self.file))
 		#myimage.writeinfo(["This is a demo", "of some possibilities", "of f2n.py"], colour=(255,100,0))
-		myimage.tonet(self.basepath + "_stars.png")
+		if not os.path.isdir("alipy_visu"):
+				os.makedirs("alipy_visu")
+		myimage.tonet(os.path.join("alipy_visu", self.common + "_stars.png"))
 
 	
 	
@@ -126,20 +130,19 @@ class ImgCat:
 		plt.title(str(self))
 		plt.xlabel("x")
 		plt.ylabel("y")
-		
-		
 		ax = plt.gca()
 		ax.set_aspect('equal', 'datalim')
 	
-
 		if show:
 			plt.show()
 		else:
-			plt.savefig(self.basepath + "_quads.png")
+			if not os.path.isdir("alipy_visu"):
+				os.makedirs("alipy_visu")
+			plt.savefig(os.path.join("alipy_visu", self.common + "_quads.png"))
 
 
 
-	def affineremap(self, shape, filepath=None):
+	def affineremap(self, shape, filepath=None, makepng=False):
 		"""
 		Apply the simple affine transform to the image and saves the result as FITS.
 		If filename is None, image is saved next to original one.
@@ -160,9 +163,25 @@ class ImgCat:
 			#(imgdir, filename) = os.path.split(self.file)
 			#(common, ext) = os.path.splitext(filename)
 			#filepath = os.path.join(imgdir, common + "_affineremap.fits")
-			filepath = self.basepath + "_affineremap.fits"
+			if not os.path.isdir("alipy_out"):
+				os.makedirs("alipy_out")
+			filepath = os.path.join("alipy_out", self.common + "_affineremap.fits")
 		
 		tofits(filepath, data, hdr = None, verbose = True)
+		
+		if makepng:
+			try:
+				import f2n
+			except ImportError:
+				print "Couldn't import f2n -- install it !"
+				return
+			myimage = f2n.f2nimage(numpyarray=data, verbose=False)
+			myimage.setzscale("auto", "auto")
+			myimage.makepilimage("log", negative = False)
+			myimage.writetitle(self.common + "_affineremap.fits")
+			if not os.path.isdir("alipy_out"):
+					os.makedirs("alipy_out")
+			myimage.tonet(os.path.join("alipy_out", self.common + "_affineremap.png"))
 
 
 def ccworder(a):
@@ -180,15 +199,16 @@ def fromfits(infilename, hdu = 0, verbose = True):
 	Use hdu to specify which HDU you want (default = primary = 0)
 	"""
 	
+	if verbose:
+		print "Reading %s ..." % (os.path.basename(infilename))
+	
 	pixelarray, hdr = pyfits.getdata(infilename, hdu, header=True)
 	pixelarray = np.asarray(pixelarray).transpose()
 	
 	pixelarrayshape = pixelarray.shape
 	if verbose :
-		print "FITS import shape : (%i, %i)" % (pixelarrayshape[0], pixelarrayshape[1])
-		print "FITS file BITPIX : %s" % (hdr["BITPIX"])
-		print "Internal array type :", pixelarray.dtype.name
-	
+		print "FITS import (%i, %i) BITPIX %s / %s" % (pixelarrayshape[0], pixelarrayshape[1], hdr["BITPIX"], str(pixelarray.dtype.name))
+		
 	return pixelarray, hdr
 
 def tofits(outfilename, pixelarray, hdr = None, verbose = True):
@@ -199,7 +219,7 @@ def tofits(outfilename, pixelarray, hdr = None, verbose = True):
 	"""
 	pixelarrayshape = pixelarray.shape
 	if verbose :
-		print "FITS export shape : (%i, %i)" % (pixelarrayshape[0], pixelarrayshape[1])
+		print "FITS export (%i, %i) %s ..." % (pixelarrayshape[0], pixelarrayshape[1], str(pixelarray.dtype.name))
 
 	if pixelarray.dtype.name == "bool":
 		pixelarray = np.cast["uint8"](pixelarray)

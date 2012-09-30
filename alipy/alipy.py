@@ -51,16 +51,21 @@ class Identification:
 				break
 
 
-def run(refpath, uknpathlist, visu=True):
+def run(refpath, uknpathlist, visu=True, skipsaturated=False):
 	"""
 	refpath is a reference FITS file
 	uknpathlist is a list of FITS files to align
+	
+	:param skipsaturated: Should I skip saturated stars ?
+	:type skipsaturated: boolean
+	
+	
 	"""
 	
 	print "Preparing ref ..."
 	ref = imgcat.ImgCat(refpath)
 	ref.makecat(rerun=False)
-	ref.makestarlist()
+	ref.makestarlist(skipsaturated=skipsaturated)
 	if visu:
 		ref.showstars()
 	
@@ -69,7 +74,7 @@ def run(refpath, uknpathlist, visu=True):
 		
 		ukn = imgcat.ImgCat(uknpath)
 		ukn.makecat(rerun=False)
-		ukn.makestarlist()
+		ukn.makestarlist(skipsaturated=skipsaturated)
 		if visu:
 			ukn.showstars()
 
@@ -79,7 +84,7 @@ def run(refpath, uknpathlist, visu=True):
 			print "Done with %s :-P" % (uknpath)
 			#print ukn.transform
 			
-			ukn.affineremap(shape=(2000, 2000))
+			ukn.affineremap(shape=(2000, 2000), makepng=True)
 	
 
 

@@ -14,4 +14,6 @@ todo :
 - png visu of aligned image
 
 
+- quad image for doc website
+
 
