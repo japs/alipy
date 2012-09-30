@@ -33,12 +33,7 @@ class Identification:
 		
 	def findtrans(self, r = 5.0, verbose=True):
 		"""
-		Find the best trans given the quads, and tests if the match is sufficient
-		Scenarios :
-			- only 4 ukn stars, but no match
-			- 
-		
-		Returns True if it worked, False otherwise.
+		Find the best trans given the quads, and tests if the match is sufficient	
 		"""
 		
 		# First question : what is a good match ?
