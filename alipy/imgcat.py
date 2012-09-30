@@ -31,30 +31,32 @@ class ImgCat:
 		self.cat = cat
 		self.starlist = []
 		self.quadlist = []
+		self.quadlevel = 0 # encodes what kind of quads have already been computed
+		
 		self.transform = star.SimpleTransform()
 		
 		self.xlim = (0, 0)
 		self.ylim = (0, 0)
 	
 	def __str__(self):
-		return "%20s: approx %4i x %4i, %4i stars, %4i quads" % (os.path.basename(self.file),
+		return "%20s: approx %4i x %4i, %4i stars, %4i quads, quadlevel %i" % (os.path.basename(self.file),
 			self.xlim[1] - self.xlim[0], self.ylim[1] - self.ylim[0],
-			len(self.starlist), len(self.quadlist))
+			len(self.starlist), len(self.quadlist), self.quadlevel)
 	
-	def makecat(self, rerun=False):
+	def makecat(self, rerun=False, verbose=True):
 		self.cat = pysex.run(self.file, conf_args={'DETECT_THRESH':3.0, 'ANALYSIS_THRESH':3.0, 'DETECT_MINAREA':10,
 		'PIXEL_SCALE':1.0, 'SEEING_FWHM':2.0, "FILTER":"Y"},
 		params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'],
 		keepcat=True, rerun=rerun, catdir="alipy_cats")
 
 	
-	def makestarlist(self, skipsaturated=False, n=500):
+	def makestarlist(self, skipsaturated=False, n=500, verbose=True):
 		if self.cat:
 			if skipsaturated:
 				maxflag = 3
 			else:
 				maxflag = 7
-			self.starlist = star.sortstarlistbyflux(star.readsexcat(self.cat, maxflag=maxflag, verbose=True))[:n]
+			self.starlist = star.sortstarlistbyflux(star.readsexcat(self.cat, maxflag=maxflag, verbose=verbose))[:n]
 			(xmin, xmax, ymin, ymax) = star.area(self.starlist, border=0.01)
 			self.xlim = (xmin, xmax)
 			self.ylim = (ymin, ymax)
@@ -62,21 +64,27 @@ class ImgCat:
 			raise RuntimeError("No cat : call makecat first !")
 	
 	
-	def makequadlist(self, add=True, **kwargs):
+	def makemorequads(self, verbose=True):
 		"""
-		:param add: If True, I add the new quads to the existing ones.
-		:type add: boolean
+		We add more quads, following the quadlevel.
 		"""
-		if not add:
-			self.quadlist = []
-		self.quadlist.extend(quad.makequads1(self.starlist, n=7))
-		#self.quadlist.extend(quad.makequads2(self.starlist, f=3, n=5))
-		self.quadlist.extend(quad.makequads2(self.starlist, f=6, n=5))
+		#if not add:
+		#	self.quadlist = []
+		if self.quadlevel == 0:
+			self.quadlist.extend(quad.makequads1(self.starlist, n=7, verbose=verbose))
+		elif self.quadlevel == 1:
+			self.quadlist.extend(quad.makequads2(self.starlist, f=3, n=5, verbose=verbose))
+		elif self.quadlevel == 2:
+			self.quadlist.extend(quad.makequads2(self.starlist, f=6, n=5, verbose=verbose))
+		else:
+			return False
 		
-		self.quadlist = quad.removeduplicates(self.quadlist)
+		self.quadlist = quad.removeduplicates(self.quadlist, verbose=verbose)
+		self.quadlevel += 1
+		return True	
 		
 	
-	def showstars(self):
+	def showstars(self, verbose=True):
 		"""
 		Uses f2n to write a png image with circled stars.
 		"""
@@ -86,6 +94,8 @@ class ImgCat:
 			print "Couldn't import f2n -- install it !"
 			return
 		
+		if verbose:
+			print "Writing png ..."
 		myimage = f2n.fromfits(self.file, verbose=False)
 		#myimage.rebin(int(myimage.xb/1000.0))
 		myimage.setzscale("auto", "auto")
@@ -100,10 +110,13 @@ class ImgCat:
 
 	
 	
-	def showquads(self, show=False, flux=True):
+	def showquads(self, show=False, flux=True, verbose=True):
 		"""
 		Uses matplotlib to write/show the quads.
 		"""
+		if verbose:
+			print "Plotting quads ..."
+		
 		import matplotlib.pyplot as plt
 		#import matplotlib.patches
 		#import matplotlib.collections
@@ -142,7 +155,7 @@ class ImgCat:
 
 
 
-	def affineremap(self, shape, filepath=None, makepng=False):
+	def affineremap(self, shape, filepath=None, makepng=False, verbose=True):
 		"""
 		Apply the simple affine transform to the image and saves the result as FITS.
 		If filename is None, image is saved next to original one.
@@ -156,7 +169,7 @@ class ImgCat:
 		(matrix, offset) = inv.matrixform()
 		#print matrix, offset
 		
-		data, hdr = fromfits(self.file, hdu = 0, verbose = True)
+		data, hdr = fromfits(self.file, hdu = 0, verbose = verbose)
 		data = scipy.ndimage.interpolation.affine_transform(data, matrix, offset=offset, output_shape = shape)
 		
 		if not filepath:
@@ -167,7 +180,7 @@ class ImgCat:
 				os.makedirs("alipy_out")
 			filepath = os.path.join("alipy_out", self.common + "_affineremap.fits")
 		
-		tofits(filepath, data, hdr = None, verbose = True)
+		tofits(filepath, data, hdr = None, verbose = verbose)
 		
 		if makepng:
 			try:
@@ -175,7 +188,7 @@ class ImgCat:
 			except ImportError:
 				print "Couldn't import f2n -- install it !"
 				return
-			myimage = f2n.f2nimage(numpyarray=data, verbose=False)
+			myimage = f2n.f2nimage(numpyarray=data, verbose=verbose)
 			myimage.setzscale("auto", "auto")
 			myimage.makepilimage("log", negative = False)
 			myimage.writetitle(self.common + "_affineremap.fits")

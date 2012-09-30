@@ -174,15 +174,15 @@ def removeduplicates(quadlist, verbose=True):
 	
 
 
-def proposecands(uknquadlist, refquadlist, n=5):
+def proposecands(uknquadlist, refquadlist, n=5, verbose=True):
 	"""
 	Function that identifies similar quads between the unknown image and a reference.
+	Returns a dict of (uknquad, refquad, dist, trans)
 	"""
-
+	if verbose:
+		print "Finding %i best candidates among %i x %i (ukn x ref)" % (n, len(uknquadlist), len(refquadlist))
 	uknhashs = np.array([q.hash for q in uknquadlist])	
 	refhashs = np.array([q.hash for q in refquadlist])
-	#print "Unknown quads   : ", uknhashs.shape[0]
-	#print "Reference quads : ", refhashs.shape[0]
 	
 	# Brute force...
 	dists = scipy.spatial.distance.cdist(refhashs, uknhashs)
@@ -192,9 +192,15 @@ def proposecands(uknquadlist, refquadlist, n=5):
 	
 	candlist = []
 	for i in range(n):
-		cand = [uknquadlist[uknbestindexes[i]], refquadlist[uknmindistindexes[uknbestindexes[i]]]]
+	
+		cand = {"uknquad": uknquadlist[uknbestindexes[i]], "refquad":refquadlist[uknmindistindexes[uknbestindexes[i]]],
+			"dist":uknmindist[uknbestindexes[i]]}
+					
+		cand["trans"] = quadtrans(cand["uknquad"], cand["refquad"])
+		
 		candlist.append(cand)
-		#print uknmindist[uknbestindexes[i]]
+		if verbose:
+			print "Candidate %2i : distance %12.8f  : %s" % (i+1, cand["dist"], str(cand["trans"]))
 	
 	return candlist
 	
@@ -203,9 +209,8 @@ def quadtrans(uknquad, refquad):
 	"""
 	Quickly return a transform estimated from the stars A and B of two quads.
 	"""
-	t = star.SimpleTransform()
-	t.fitstars(uknquad.stars[:2], refquad.stars[:2])
-	return t
+	return star.fitstars(uknquad.stars[:2], refquad.stars[:2])
+	
 
 
 

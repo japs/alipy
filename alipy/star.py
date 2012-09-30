@@ -344,7 +344,7 @@ class SimpleTransform:
 		return math.atan2(self.v[1], self.v[0]) * (180.0/math.pi)# % 360.0
 	
 	def __str__(self):
-		return "Rotation %+9.6f [deg], Scaling %8.6f" % (self.getrotation(), self.getscaling())
+		return "Rotation %+13.6f [deg], Scaling %8.6f" % (self.getrotation(), self.getscaling())
 	
 	
 	def inverse(self):
@@ -392,89 +392,140 @@ class SimpleTransform:
 		return [self.applystar(star) for star in starlist]
 	
 	
-	def fitstars(self, uknstars, refstars):
-		"""
-		I set the transform so that it puts the unknown stars (uknstars) onto the refstars.
-		If you supply only two stars, this is using linalg.solve() -- perfect solution.
-		If you supply more stars, we use linear least squares, i.e. minimize the 2D error.
-		
-		Formalism inspired by :
-		http://math.stackexchange.com/questions/77462/
-		"""
-		
-		assert len(uknstars) == len(refstars)
-		
-		# ukn * x = ref
-		# x is the transform (a, b, c, d)
-		
-		ref = np.hstack(listtoarray(refstars)) # a 1D vector of lenth 2n
-		
-		uknlist = []
-		for star in uknstars:
-			uknlist.append([star.x, -star.y, 1, 0])
-			uknlist.append([star.y, star.x, 0, 1])
-		ukn = np.vstack(np.array(uknlist)) # a matrix
-		
-		if len(uknstars) == 2:
-			trans = scipy.linalg.solve(ukn, ref)
+def fitstars(uknstars, refstars):
+	"""
+	I return the transform that puts the unknown stars (uknstars) onto the refstars.
+	If you supply only two stars, this is using linalg.solve() -- perfect solution.
+	If you supply more stars, we use linear least squares, i.e. minimize the 2D error.
+	
+	Formalism inspired by :
+	http://math.stackexchange.com/questions/77462/
+	"""
+	
+	assert len(uknstars) == len(refstars)
+	
+	# ukn * x = ref
+	# x is the transform (a, b, c, d)
+	
+	ref = np.hstack(listtoarray(refstars)) # a 1D vector of lenth 2n
+	
+	uknlist = []
+	for star in uknstars:
+		uknlist.append([star.x, -star.y, 1, 0])
+		uknlist.append([star.y, star.x, 0, 1])
+	ukn = np.vstack(np.array(uknlist)) # a matrix
+	
+	if len(uknstars) == 2:
+		trans = scipy.linalg.solve(ukn, ref)
+	else:
+		trans = scipy.linalg.lstsq(ukn, ref)[0]
+	
+	return SimpleTransform(np.asarray(trans))
+
+
+# 	def teststars(self, uknstars, refstars, r=5.0, verbose=True):
+# 		"""
+# 		We apply the trans to the uknstarlist, and check for correspondance with the refstarlist.
+# 		Returns the number of uknstars that could be matched to refstars within r [unit : reference image pixels !].
+# 		"""
+# 		
+# 		transuknstars = self.applystarlist(uknstars)
+# 		
+# 		transukn = listtoarray(transuknstars)
+# 		ref = listtoarray(refstars)
+# 		#print "Unknown stars   : ", transukn.shape[0]
+# 		#print "Reference stars : ", ref.shape[0]
+# 		
+# 		mindists = np.min(scipy.spatial.distance.cdist(ref, transukn), axis=0)
+# 		print " must become smarter !!!!"
+# 		nbmatch = np.sum(mindists < r)
+# 		if verbose:
+# 			print "Tested match on %4i references : OK for %4i/%4i unknown stars (r = %.1f)." % (len(refstars), nbmatch, len(uknstars), r)
+# 		
+# 		return nbmatch
+# 		
+# 		
+# 	def refinestars(self, uknstars, refstars, r=5.0, verbose=True):
+# 		"""
+# 		I refit myself to all matching stars.
+# 		"""
+# 		
+# 		transuknstars = self.applystarlist(uknstars)
+# 		transukn = listtoarray(transuknstars)
+# 		ref = listtoarray(refstars)
+# 		
+# 		# Brute force...
+# 		dists = scipy.spatial.distance.cdist(ref, transukn)
+# 		uknmindistindexes = np.argmin(dists, axis=0) # For each ukn, the index of the closest ref
+# 		uknmindist = np.min(dists, axis=0) # The corresponding distances
+# 		uknkeepers = uknmindist < r
+# 		
+# 		matchuknstars = []
+# 		matchrefstars = []
+# 		for i in range(len(uknkeepers)):
+# 			if uknkeepers[i] == True:
+# 				matchuknstars.append(uknstars[i])
+# 				matchrefstars.append(refstars[uknmindistindexes[i]])
+# 		if verbose:
+# 			print "Refining (before / after) :"
+# 			print self
+# 		self.fitstars(matchuknstars, matchrefstars)
+# 		if verbose:
+# 			print self
+# 
+
+
+
+def identify(uknstars, refstars, trans=None, r=5.0, verbose=True, getstars=False):
+	"""
+	Allows to:
+	 * get the number or matches, i.e. evaluate the quality of the trans
+	 * get corresponding stars from both lists (without the transform applied)
+	
+	:param getstars: If True, I return two lists of corresponding stars, instead of just the number of matching stars
+	:type getstars: boolean
+
+	Inspired by the "formpairs" of alipy 1.0 ...
+
+	"""
+	
+	if trans != None:
+		ukn = listtoarray(trans.applystarlist(uknstars))
+	else:
+		ukn = listtoarray(uknstars)
+	ref = listtoarray(refstars)
+	
+	dists = scipy.spatial.distance.cdist(ukn, ref) # Big table of distances between ukn and ref
+	mindists = np.min(dists, axis=1) # For each ukn, the minimal distance
+	minok = mindists <= r # booleans for each ukn
+ 	minokindexes = np.argwhere(minok).flatten() # indexes of uknstars with matches
+	
+	if verbose:
+		print "%i/%i stars with distance < r = %.1f (mean %.1f, median %.1f, std %.1f)" % (np.sum(minok), len(uknstars), r, 
+			np.mean(mindists[minok]), np.median(mindists[minok]), np.std(mindists[minok]))
+	
+	matchuknstars = []
+	matchrefstars = []
+	
+	for i in minokindexes: # we look for the second nearest ...
+		sortedrefs = np.argsort(dists[i,:])
+		firstdist = dists[i,sortedrefs[0]] 
+		seconddist = dists[i,sortedrefs[1]]
+		if seconddist > 2.0*firstdist: # Then the situation is clear, we keep it.
+			matchuknstars.append(uknstars[i])
+			matchrefstars.append(refstars[sortedrefs[0]])
 		else:
-			trans = scipy.linalg.lstsq(ukn, ref)[0]
+			pass # Then there is a companion, we skip it.
+	
+	if verbose:
+		print "Filtered for companions, keeping %i/%i matches" % (len(matchuknstars), np.sum(minok))
+	
+	if getstars==True:
+		return (matchuknstars, matchrefstars)
+	else:
+		return len(matchuknstars)
+	
 		
-		self.v = np.asarray(trans)
-
-
-	def teststars(self, uknstars, refstars, refrad=5.0, verbose=True):
-		"""
-		We apply the trans to the uknstarlist, and check for correspondance with the refstarlist.
-		Returns the number of uknstars that could be matched to refstars within refrad.
-		"""
-		
-		transuknstars = self.applystarlist(uknstars)
-		
-		transukn = listtoarray(transuknstars)
-		ref = listtoarray(refstars)
-		#print "Unknown stars   : ", transukn.shape[0]
-		#print "Reference stars : ", ref.shape[0]
-		
-		mindists = np.min(scipy.spatial.distance.cdist(ref, transukn), axis=0)
-		nbmatch = np.sum(mindists < refrad)
-		if verbose:
-			print "Tested match on %4i references : OK for %4i/%4i unknown stars (r = %.1f)." % (len(refstars), nbmatch, len(uknstars), refrad)
-		
-		return nbmatch
-		
-		
-	def refinestars(self, uknstars, refstars, refrad=5.0, verbose=True):
-		"""
-		I refit myself to all matching stars.
-		"""
-		
-		transuknstars = self.applystarlist(uknstars)
-		transukn = listtoarray(transuknstars)
-		ref = listtoarray(refstars)
-		
-		# Brute force...
-		dists = scipy.spatial.distance.cdist(ref, transukn)
-		uknmindistindexes = np.argmin(dists, axis=0) # For each ukn, the index of the closest ref
-		uknmindist = np.min(dists, axis=0) # The corresponding distances
-		uknkeepers = uknmindist < refrad
-		
-		matchuknstars = []
-		matchrefstars = []
-		for i in range(len(uknkeepers)):
-			if uknkeepers[i] == True:
-				matchuknstars.append(uknstars[i])
-				matchrefstars.append(refstars[uknmindistindexes[i]])
-		if verbose:
-			print "Refining (before / after) :"
-			print self
-		self.fitstars(matchuknstars, matchrefstars)
-		if verbose:
-			print self
-
-
-
-
 
 
 
