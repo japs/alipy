@@ -46,7 +46,7 @@ class ImgCat:
 		keepcat=True, rerun=rerun, catdir="alipy_cats")
 
 	
-	def makestarlist(self, skipsaturated=False, n=800, verbose=True):
+	def makestarlist(self, skipsaturated=False, n=200, verbose=True):
 		if self.cat:
 			if skipsaturated:
 				maxflag = 3

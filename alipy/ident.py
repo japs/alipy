@@ -45,7 +45,7 @@ class Identification:
 			minnident = max(4, min(8, len(self.ukn.starlist)/5.0)) # Perfectly arbitrary, let's see how it works
 		
 		# Hmm, arbitrary for now :
-		minquaddist = 0.001
+		minquaddist = 0.005
 		
 		# Let's start :
 		if self.ref.quadlevel == 0:
@@ -148,7 +148,7 @@ class Identification:
 
 
 
-def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, verbose=True):
+def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, verbose=True):
 	"""
 	Top-level function to identify transorms between images.
 	Returns a list of alipy.Identification objects that contain all the info to go further.
@@ -168,6 +168,8 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, verbose=True):
 	
 	:param r: Identification radius in pixels of the reference image (default 5.0 should be fine).
 	:type r: float
+	:param n: Number of brightest stars of each image to consider (default 500 should be fine).
+	:type n: int
 	
 	"""
 	
@@ -175,7 +177,7 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, verbose=True):
 		print 10*"#", " Preparing reference ..."
 	ref = imgcat.ImgCat(ref)
 	ref.makecat(rerun=False, verbose=verbose)
-	ref.makestarlist(skipsaturated=skipsaturated, verbose=verbose)
+	ref.makestarlist(skipsaturated=skipsaturated, n=n, verbose=verbose)
 	if visu:
 		ref.showstars(verbose=verbose)
 	ref.makemorequads(verbose=verbose)
@@ -189,7 +191,7 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, verbose=True):
 		
 		ukn = imgcat.ImgCat(ukn)
 		ukn.makecat(rerun=False, verbose=verbose)
-		ukn.makestarlist(skipsaturated=skipsaturated, verbose=verbose)
+		ukn.makestarlist(skipsaturated=skipsaturated, n=n, verbose=verbose)
 		if visu:
 			ukn.showstars(verbose=verbose)
 
