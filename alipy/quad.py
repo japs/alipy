@@ -127,9 +127,10 @@ def makequads1(starlist, n=7, verbose=True):
 
 
 	
-def makequads2(starlist, f=5.0, n=6, verbose=True):
+def makequads2(starlist, f=5.0, n=6, s=0, verbose=True):
 	"""
 	Similar, but fxf in subareas roughly f times smaller than the full frame.
+	s allows to skip the brightest stars in each region
 	"""
 	quadlist = []
 	sortedstars = star.sortstarlistbyflux(starlist)
@@ -142,15 +143,18 @@ def makequads2(starlist, f=5.0, n=6, verbose=True):
 			cstar = star.Star(x=xc, y=yc)
 			das = cstar.distanceandsort(sortedstars)
 			#closest = [s["star"] for s in das[0:4]]
-			brightestwithinr = star.sortstarlistbyflux([s["star"] for s in das if s["dist"] <= r])[:n]
+			brightestwithinr = star.sortstarlistbyflux([element["star"] for element in das if element["dist"] <= r])[s:s+n]
 			for fourstars in itertools.combinations(brightestwithinr, 4):
 				if mindist(fourstars) > 20.0:
 					quadlist.append(Quad(fourstars))
 			
 	if verbose:
-		print "Made %4i quads from %4i stars (combi sub f=%.1f n=%i)" % (len(quadlist), len(starlist), f, n)
+		print "Made %4i quads from %4i stars (combi sub f=%.1f n=%i s=%i)" % (len(quadlist), len(starlist), f, n, s)
 
 	return quadlist
+
+
+
 
 
 def removeduplicates(quadlist, verbose=True):

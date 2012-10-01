@@ -7,7 +7,8 @@ import os
 
 class Identification:
 	"""
-	Represents the identification of a transform between two ImgCat objects
+	Represents the identification of a transform between two ImgCat objects.
+	Regroups all the star catalogs, the transform, the quads, the candidate, etc.
 	"""
 
 	def __init__(self, ref, ukn):
@@ -22,9 +23,10 @@ class Identification:
 		"""
 		self.ref = ref
 		self.ukn = ukn
+		
 		self.ok = False
 		
-		
+		self.trans = None
 		self.uknmatchstars = []
 		self.refmatchstars = []
 		self.cand = None
@@ -36,12 +38,14 @@ class Identification:
 		Find the best trans given the quads, and tests if the match is sufficient	
 		"""
 		
-		# First question : what is a good match ?
+		# First question : how many stars should match ?
 		if len(self.ukn.starlist) < 5: # Then we should simply try to get the smallest distance...
 			minnident = 4
 		else:
 			minnident = max(4, min(8, len(self.ukn.starlist)/5.0)) # Perfectly arbitrary, let's see how it works
-			
+		
+		# Hmm, arbitrary for now :
+		minquaddist = 0.001
 		
 		# Let's start :
 		if self.ref.quadlevel == 0:
@@ -53,15 +57,15 @@ class Identification:
 			
 			# Find the best candidates
 			cands = quad.proposecands(self.ukn.quadlist, self.ref.quadlist, n=4, verbose=verbose)
-			for cand in cands:
-				# Check how many stars are identified...
-				
-				nident = star.identify(self.ukn.starlist, self.ref.starlist, trans=cand["trans"], r=r, verbose=verbose, getstars=False)
-				if nident >= minnident:
-					self.ukn.transform = cand["trans"]
-					self.cand = cand
-					self.ok = True
-					break # get out of the for
+			if cands[0]["dist"] < minquaddist:
+				for cand in cands:
+					# Check how many stars are identified...					
+					nident = star.identify(self.ukn.starlist, self.ref.starlist, trans=cand["trans"], r=r, verbose=verbose, getstars=False)
+					if nident >= minnident:
+						self.trans = cand["trans"]
+						self.cand = cand
+						self.ok = True
+						break # get out of the for
 					
 			if self.ok == False:
 				# We add more quads...
@@ -74,16 +78,16 @@ class Identification:
 
 		if self.ok: # we refine the transform
 			# get matching stars :
-			(self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist, self.ref.starlist, trans=self.ukn.transform, r=r, verbose=False, getstars=True)
+			(self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist, self.ref.starlist, trans=self.trans, r=r, verbose=False, getstars=True)
 			# refit the transform on them :
 			if verbose:
 				print "Refitting transform (before/after) :"
-				print self.ukn.transform
-			self.ukn.transform = star.fitstars(self.uknmatchstars, self.refmatchstars)
+				print self.trans
+			self.trans = star.fitstars(self.uknmatchstars, self.refmatchstars)
 			if verbose:
-				print self.ukn.transform
+				print self.trans
 			# Generating final matched star lists :
-			(self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist, self.ref.starlist, trans=self.ukn.transform, r=r, verbose=verbose, getstars=True)
+			(self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist, self.ref.starlist, trans=self.trans, r=r, verbose=verbose, getstars=True)
 
 			if verbose:
 				print "I'm done !"
@@ -98,6 +102,8 @@ class Identification:
 		"""
 		A plot of the transformed stars and the candidate quad
 		"""
+		if self.ok == False:
+			return
 		if verbose:
 			print "Plotting match ..."
 		import matplotlib.pyplot as plt
@@ -113,9 +119,9 @@ class Identification:
 		plt.scatter(a[:,0], a[:,1], s=10.0, color="black")
 		
 		# The ukn in red
-		a = star.listtoarray(self.ukn.transform.applystarlist(self.ukn.starlist), full=True)
+		a = star.listtoarray(self.trans.applystarlist(self.ukn.starlist), full=True)
 		plt.scatter(a[:,0], a[:,1], s=2.0, color="red")
-		a = star.listtoarray(self.ukn.transform.applystarlist(self.uknmatchstars), full=True)
+		a = star.listtoarray(self.trans.applystarlist(self.uknmatchstars), full=True)
 		plt.scatter(a[:,0], a[:,1], s=6.0, color="red")
 		
 		# The quad
@@ -126,7 +132,7 @@ class Identification:
 
 		plt.xlim(self.ref.xlim)
 		plt.ylim(self.ref.ylim)
-		plt.title("Match of %s" % (str(self.ukn.common)))
+		plt.title("Match of %s" % (str(self.ukn.name)))
 		plt.xlabel("ref x")
 		plt.ylabel("ref y")
 		ax = plt.gca()
@@ -137,13 +143,25 @@ class Identification:
 		else:
 			if not os.path.isdir("alipy_visu"):
 				os.makedirs("alipy_visu")
-			plt.savefig(os.path.join("alipy_visu", self.ukn.common + "_match.png"))
+			plt.savefig(os.path.join("alipy_visu", self.ukn.name + "_match.png"))
 
 
-def run(refpath, uknpathlist, visu=True, skipsaturated=False, r = 5.0, verbose=True):
+
+
+def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, verbose=True):
 	"""
-	refpath is a reference FITS file / asciidata catalog TODO
-	uknpathlist is a list of FITS files to align
+	Top-level function to identify transorms between images.
+	Returns a list of alipy.Identification objects that contain all the info to go further.
+	TODO : MAKE THIS GUY ACCEPT EXISTING ASCIIDATA CATALOGS
+
+	:param ref: path to FITS file that acts as the "reference".
+	:type ref: string
+	
+	:param ukns: list of paths to FITS files to be "aligned" on the reference. **ukn** stands for unknown ...
+	:type ref: list of strings
+	
+	:param visu: If yes, I'll draw some visualizations of the process (good to understand problems ...)
+	:type visu: boolean
 	
 	:param skipsaturated: Should I skip saturated stars ?
 	:type skipsaturated: boolean
@@ -155,22 +173,21 @@ def run(refpath, uknpathlist, visu=True, skipsaturated=False, r = 5.0, verbose=T
 	
 	if verbose:
 		print 10*"#", " Preparing reference ..."
-	ref = imgcat.ImgCat(refpath)
+	ref = imgcat.ImgCat(ref)
 	ref.makecat(rerun=False, verbose=verbose)
 	ref.makestarlist(skipsaturated=skipsaturated, verbose=verbose)
 	if visu:
 		ref.showstars(verbose=verbose)
 	ref.makemorequads(verbose=verbose)
 	
+	identifications = []
 	
-	transforms = []
-	
-	for uknpath in uknpathlist:
+	for ukn in ukns:
 		
 		if verbose:
-			print 10*"#", "Processing %s" % (uknpath)
+			print 10*"#", "Processing %s" % (ukn)
 		
-		ukn = imgcat.ImgCat(uknpath)
+		ukn = imgcat.ImgCat(ukn)
 		ukn.makecat(rerun=False, verbose=verbose)
 		ukn.makestarlist(skipsaturated=skipsaturated, verbose=verbose)
 		if visu:
@@ -178,22 +195,16 @@ def run(refpath, uknpathlist, visu=True, skipsaturated=False, r = 5.0, verbose=T
 
 		idn = Identification(ref, ukn)
 		idn.findtrans(verbose=verbose, r=r)
+		identifications.append(idn)
 		
 		if visu:
 			ukn.showquads(verbose=verbose)
 			idn.showmatch(verbose=verbose)
 		
-		if idn.ok:
-			transforms.append(ukn.transform)
-		else:
-			transforms.append(None)
-				
-		#ukn.affineremap(shape=(2000, 2000), makepng=True)
 	if visu:
 		ref.showquads(verbose=verbose)
 		
-	
-	return transforms
+	return identifications
 
 
 

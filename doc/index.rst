@@ -13,13 +13,14 @@ Welcome to alipy 2
 About
 -----
 
-This is a python module to quickly identify geometrical transforms between conventional optical astronomical images of a given patch of sky, using only field stars. The images can have different pixel sizes, orientations, pointings and filters.
+This is a python package to quickly and automatically identify geometrical transforms between conventional optical astronomical images of a given patch of sky, using only field stars. The images can have different pixel sizes, orientations, pointings and filters.
 
-.. note:: alipy is personal code... It might be useful (it is for me, I hope it will be for you), but don't expect too much !
+.. note:: alipy is personal code, and work in progress... It might be useful (it is for me, I hope it will be for you), but don't expect too much !
+
 
 Summary of typical workflow :
  * We run SExtractor (see :doc:`installation`) on the images to get individual source catalogs.
- * We identify corresponding asterisms (roughly following `Lang et al. 2010 <http://adsabs.harvard.edu/abs/2010AJ....139.1782L>`_ aka astrometry.net).
+ * We identify corresponding asterisms, roughly following `Lang et al. (2010) <http://adsabs.harvard.edu/abs/2010AJ....139.1782L>`_ aka `astrometry.net <http://www.astrometry.net>`_.
  * We use this identification to match catalogs, align the images (either directly with scipy, or pyraf geomap/gregister), ...
 
 Last build of this documentation : |today|.
