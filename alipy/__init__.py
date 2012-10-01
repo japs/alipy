@@ -1,5 +1,4 @@
 """
-This is a package to automatically identify geometrical transforms between astronomical images.
 """
 
 __author__ = "Malte Tewes"

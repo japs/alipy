@@ -1,7 +1,7 @@
 About
 =====
 
-This is a python package to quickly and automatically identify geometrical transforms between conventional optical astronomical images of a given patch of sky, using only field stars. The images can have different pixel sizes, orientations, pointings and filters.
+This is a python package to quickly, automatically, and robustly identify geometrical transforms between optical astronomical images, using only field stars. The images can have different pixel sizes, orientations, pointings and filters.
 
 http://obswww.unige.ch/~tewes/
 
