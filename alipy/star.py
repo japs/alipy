@@ -544,247 +544,247 @@ def identify(uknstars, refstars, trans=None, r=5.0, verbose=True, getstars=False
 
 ################################################################################################################################
 
-
-
-
-
-def formpairs(starlist1, starlist2, tolerance = 2.0, onlysingle = False, transform = False, scalingratio = 1.0, angle = 0.0, shift = (0.0, 0.0), verbose = True):
-	"""
-	starlist1 and starlist2 are two lists of stars.
-	For each star in starlist1, we find the closest star of starlist2, if found within a given tolerance.
-	starlist1 = hand picked stars
-	starlist2 = large catalog of 
-	We return a list of pairs of the corresponding stars (in form of a dict). See first lines to get that.
-	
-	transform == True :
-		starlist2 is tranformed, using scalingration, angle, and shift, prior to the pair creation.
-		Nevertheless, the idlist 2 will be filled with the raw untransformed stars from starlist2 !!!
-		
-	
-	tolerance = maximum distance between identified stars. Set it high -> simply select the closest one.
-	onlysingle == False : closest star within tolerance
-	onlysingle == True : same, but only if no other star is within tolerance
-	
-	"""
-	idlist1 = [] # Stars of starlist1 identified in starlist2
-	idlist2 = [] # The corresponding starlist2 stars (same number, same order)
-	iddists = [] # The list of distances between the stars of idlist1 and idlist2 (same number and order)
-	nomatch = [] # Stars of starlist1 that could not be identified in starlist2
-	notsure = [] # Stars of starlist1 that could not doubtlessly be identified in starlist2
-	
-	
-	# If required, we transform the starlist 2 :
-	if transform :
-		transtarlist2 = copy.deepcopy(starlist2)
-		zoomstarlist(transtarlist2, scalingratio)
-		rotatestarlist(transtarlist2, angle, (0, 0))
-		shiftstarlist(transtarlist2, shift)
-		# Remember : we will pick the stars to fill idlist2 from the raw starlist2 !
-	
-	else:
-		transtarlist2 = starlist2
-	
-	returndict = {"idlist1":idlist1, "idlist2":idlist2, "iddists":iddists, "nomatch":nomatch, "notsure":notsure}
-	
-	if len(starlist1) == 0:
-		if verbose :
-			print "Your starlist1 is empty, nothing to do."
-		return returndict
-	
-	if len(transtarlist2) == 0:
-		if verbose :
-			print "Your starlist2 is empty, no stars to identify."
-		nomatch.extend(starlist1)
-		return returndict
-			
-	# Special treatment in the case there is only one star in starlist2
-	if len(transtarlist2) == 1:
-		if verbose :
-			print "Your starlist2 is quite small..."
-		for handstar in starlist1:
-			closest = handstar.distanceandsort(transtarlist2)
-			if closest[0]['dist'] > tolerance:
-				if verbose :
-					print "No match for star %s" % handstar.name
-				nomatch.append(handstar)
-				continue
-			else:
-				idlist1.append(handstar)
-				idlist2.append(starlist2[closest[0]['origpos']])
-				iddists.append(closest[0]['dist'])
-		
-		return returndict
-				
-	# The usual case :
-	else:	
-		for handstar in starlist1:
-			closest = handstar.distanceandsort(transtarlist2)
-			if closest[0]['dist'] > tolerance:
-				if verbose :
-					print "No match for star %s" % handstar.name
-				nomatch.append(handstar)
-				continue
-				
-			# Ok, then it must be closer then tolerance. We check for other stars whose distance is less then tolerance different from the first ones distance :
-			elif onlysingle and (closest[1]['dist'] - closest[0]['dist'] < tolerance):
-				if verbose :
-					print "Multiple candidates for star %s, skipping" % handstar.name
-				notsure.append(handstar)
-				continue
-			
-			# Finally, this means we have found our star
-			else:
-				idlist1.append(handstar)
-				idlist2.append(starlist2[closest[0]['origpos']])
-				iddists.append(closest[0]['dist'])
-	
-		return returndict
-	
-
-
-def listidentify(starlist1, starlist2, tolerance = 2.0, onlysingle = False, transform = False, scalingratio = 1.0, angle = 0.0, shift = (0.0, 0.0), verbose = True):
-	"""
-	Same as formpairs (we call it), but we return only the idlist2 (not transformed, even if you give a transform), but with names taken from idlist1.
-	Typical : starlist2 is a sextractor catalog with random names, starlist 1 is a handpicked catalog with special names,
-	and you want to get stars with sextractor properties but your own names.
-	"""
-	
-	formpairsdict = formpairs(starlist1, starlist2, tolerance = tolerance, onlysingle = onlysingle, transform = transform, scalingratio = scalingratio, angle = angle, shift = shift, verbose = verbose)
-	
-	match = []
-	
-	for (s1, s2, d) in zip(formpairsdict["idlist1"], formpairsdict["idlist2"], formpairsdict["iddists"]):
-		s2.name = s1.name
-		s2.props["iddist"] = d
-		match.append(s2)
-		
-	nomatchnames = [s.name for s in formpairsdict["nomatch"]]
-	notsurenames = [s.name for s in formpairsdict["notsure"]]
-	
-	return {"match":match, "nomatchnames":nomatchnames, "notsurenames":notsurenames}
-
-	
-
-
-def findtrans(preciserefmanstars, autostars, scalingratio = 1.0, tolerance = 2.0, minnbrstars = 5, mindist = 100.0, nref = 10, nauto = 30, verbose=True):
-	
-	"""
-	Finds a rotation and shift between two catalogs (a big dirty one and a small handpicked one).
-	Both catalogs should be SORTED IN FLUX, and the second one should be smaller for max performance.
-	
-	Only the first nref stars of preciserefmanstars are considered for searching the possible matches, and furthermore only 
-	pairs farther then mindist are considered.
-	
-	tolerance is used when looking if a match was found.
-	
-	minnbrstars = as soon as this number of stars are identified, the algo stops, we look no further.
-	
-	The scalingratio parameter is a float to multiply with a distance of the autostars to match the same distance between the preciserefmanstars.
-	
-	We return a dict of 3 things :
-	- nbr of identified stars (-1 if failed)
-	- rotation angle (center = 0,0)
-	- shift
-	
-	This should then be used to transform your autostars, and then run listidentify between the catalogs if you want ...
-	This is done with the function formpairs
-	
-	"""
-	
-	# Think of a Hubble expansion with "origin" (0,0)
-	# We apply this to the image to align, so that it matches the distances in the reference image.
-	autostarscopy = copy.deepcopy(autostars)
-	zoomstarlist(autostarscopy, scalingratio)
-	
-	n = 0 # a counter for the number of tries
-	indentlist = [] # only used in case of failure
-	
-	for b, brightstar in enumerate(preciserefmanstars[:nref]):
-		for f, faintstar in enumerate(preciserefmanstars[:nref]):
-			if f == b: continue
-			stardistance = brightstar.distance(faintstar)
-			if stardistance < mindist : continue
-			
-			# We have a pair of stars from the preciserefmancat.
-			# Let's see if we find to stars in the autocat with a similar distance.
-			
-			for bc, brightcandidate in enumerate(autostarscopy[:nauto]):
-				for fc, faintcandidate in enumerate(autostarscopy[:nauto]):
-					if fc == bc: continue
-					candidatedistance =  brightcandidate.distance(faintcandidate)
-					if math.fabs(candidatedistance - stardistance)/stardistance > 0.05 :
-						# So if there is a disagreement larger then 5 percent...
-						continue
-					
-					# We now have a promising pair of pairs, let's check them out.
-					
-					n = n+1
-					
-					starangle = brightstar.trigangle(faintstar)
-					candidateangle = brightcandidate.trigangle(faintcandidate)
-					rotcandangle = (starangle - candidateangle) % 360.0	# value to "add" to cand to match the star
-					
-					# We apply this rotation to the bright candidate, to determine the shift :
-					testcand = copy.deepcopy(brightcandidate)
-					testcand.rotate(rotcandangle, (0, 0))
-					candshift = testcand.findshift(brightstar)
-					
-					# We apply the rotation and this shift to the full zoomed autostarlist :
-					testcandlist = copy.deepcopy(autostarscopy)
-					rotatestarlist(testcandlist, rotcandangle, (0, 0))
-					shiftstarlist(testcandlist, candshift)
-					
-					# We evaluate the match between the transformed autostars and the ref stars :
-					
-					pairsdict = formpairs(preciserefmanstars, testcandlist, tolerance = tolerance, onlysingle = True, verbose = False)
-					nbrids = len(pairsdict["idlist1"])
-					indentlist.append(nbrids)
-					
-					if nbrids >= minnbrstars:
-						# We got it !
-						
-						if verbose :
-							print "Number of tries : %i" % n
-							print "Distance difference : %.2f pixels" % math.fabs(candidatedistance - stardistance)
-							print "Candidate rotation angle : %.2f degrees" % rotcandangle
-							
-							print "Star pairs used :"
-							print brightstar
-							print faintstar
-							print brightcandidate
-							print faintcandidate
-							
-							print "Identified stars : %i / %i" % (nbrids, len(preciserefmanstars) )
-
-						return {"nbrids":nbrids, "angle":rotcandangle, "shift":candshift}
-
-	
-	if verbose :
-		print "I'm a superhero, but I failed"
-	if len(indentlist) > 0:
-		if verbose :
-			print "Maximum identified stars : %i" % max(indentlist)
-			
-	return {"nbrids":-1, "angle":0.0, "shift":(0.0, 0.0)}
-					
-
-
-def writeforgeomap(filename, pairs):
-	"""
-	Writes an input catalog of corresponding star pairs, for geomap
-	Pair is a list of couples like (refstar, startoalign)
-	"""
-
-
-	import csv
-	
-	table = []	
-	for pair in pairs:
-		table.append([pair[0].x, pair[0].y, pair[1].x, pair[1].y])
-
-	geomap = open(filename, "wb") # b needed for csv
-	writer = csv.writer(geomap, delimiter="\t")
-	writer.writerows(table)
-	geomap.close()
-
+# 
+# 
+# 
+# 
+# def formpairs(starlist1, starlist2, tolerance = 2.0, onlysingle = False, transform = False, scalingratio = 1.0, angle = 0.0, shift = (0.0, 0.0), verbose = True):
+# 	"""
+# 	starlist1 and starlist2 are two lists of stars.
+# 	For each star in starlist1, we find the closest star of starlist2, if found within a given tolerance.
+# 	starlist1 = hand picked stars
+# 	starlist2 = large catalog of 
+# 	We return a list of pairs of the corresponding stars (in form of a dict). See first lines to get that.
+# 	
+# 	transform == True :
+# 		starlist2 is tranformed, using scalingration, angle, and shift, prior to the pair creation.
+# 		Nevertheless, the idlist 2 will be filled with the raw untransformed stars from starlist2 !!!
+# 		
+# 	
+# 	tolerance = maximum distance between identified stars. Set it high -> simply select the closest one.
+# 	onlysingle == False : closest star within tolerance
+# 	onlysingle == True : same, but only if no other star is within tolerance
+# 	
+# 	"""
+# 	idlist1 = [] # Stars of starlist1 identified in starlist2
+# 	idlist2 = [] # The corresponding starlist2 stars (same number, same order)
+# 	iddists = [] # The list of distances between the stars of idlist1 and idlist2 (same number and order)
+# 	nomatch = [] # Stars of starlist1 that could not be identified in starlist2
+# 	notsure = [] # Stars of starlist1 that could not doubtlessly be identified in starlist2
+# 	
+# 	
+# 	# If required, we transform the starlist 2 :
+# 	if transform :
+# 		transtarlist2 = copy.deepcopy(starlist2)
+# 		zoomstarlist(transtarlist2, scalingratio)
+# 		rotatestarlist(transtarlist2, angle, (0, 0))
+# 		shiftstarlist(transtarlist2, shift)
+# 		# Remember : we will pick the stars to fill idlist2 from the raw starlist2 !
+# 	
+# 	else:
+# 		transtarlist2 = starlist2
+# 	
+# 	returndict = {"idlist1":idlist1, "idlist2":idlist2, "iddists":iddists, "nomatch":nomatch, "notsure":notsure}
+# 	
+# 	if len(starlist1) == 0:
+# 		if verbose :
+# 			print "Your starlist1 is empty, nothing to do."
+# 		return returndict
+# 	
+# 	if len(transtarlist2) == 0:
+# 		if verbose :
+# 			print "Your starlist2 is empty, no stars to identify."
+# 		nomatch.extend(starlist1)
+# 		return returndict
+# 			
+# 	# Special treatment in the case there is only one star in starlist2
+# 	if len(transtarlist2) == 1:
+# 		if verbose :
+# 			print "Your starlist2 is quite small..."
+# 		for handstar in starlist1:
+# 			closest = handstar.distanceandsort(transtarlist2)
+# 			if closest[0]['dist'] > tolerance:
+# 				if verbose :
+# 					print "No match for star %s" % handstar.name
+# 				nomatch.append(handstar)
+# 				continue
+# 			else:
+# 				idlist1.append(handstar)
+# 				idlist2.append(starlist2[closest[0]['origpos']])
+# 				iddists.append(closest[0]['dist'])
+# 		
+# 		return returndict
+# 				
+# 	# The usual case :
+# 	else:	
+# 		for handstar in starlist1:
+# 			closest = handstar.distanceandsort(transtarlist2)
+# 			if closest[0]['dist'] > tolerance:
+# 				if verbose :
+# 					print "No match for star %s" % handstar.name
+# 				nomatch.append(handstar)
+# 				continue
+# 				
+# 			# Ok, then it must be closer then tolerance. We check for other stars whose distance is less then tolerance different from the first ones distance :
+# 			elif onlysingle and (closest[1]['dist'] - closest[0]['dist'] < tolerance):
+# 				if verbose :
+# 					print "Multiple candidates for star %s, skipping" % handstar.name
+# 				notsure.append(handstar)
+# 				continue
+# 			
+# 			# Finally, this means we have found our star
+# 			else:
+# 				idlist1.append(handstar)
+# 				idlist2.append(starlist2[closest[0]['origpos']])
+# 				iddists.append(closest[0]['dist'])
+# 	
+# 		return returndict
+# 	
+# 
+# 
+# def listidentify(starlist1, starlist2, tolerance = 2.0, onlysingle = False, transform = False, scalingratio = 1.0, angle = 0.0, shift = (0.0, 0.0), verbose = True):
+# 	"""
+# 	Same as formpairs (we call it), but we return only the idlist2 (not transformed, even if you give a transform), but with names taken from idlist1.
+# 	Typical : starlist2 is a sextractor catalog with random names, starlist 1 is a handpicked catalog with special names,
+# 	and you want to get stars with sextractor properties but your own names.
+# 	"""
+# 	
+# 	formpairsdict = formpairs(starlist1, starlist2, tolerance = tolerance, onlysingle = onlysingle, transform = transform, scalingratio = scalingratio, angle = angle, shift = shift, verbose = verbose)
+# 	
+# 	match = []
+# 	
+# 	for (s1, s2, d) in zip(formpairsdict["idlist1"], formpairsdict["idlist2"], formpairsdict["iddists"]):
+# 		s2.name = s1.name
+# 		s2.props["iddist"] = d
+# 		match.append(s2)
+# 		
+# 	nomatchnames = [s.name for s in formpairsdict["nomatch"]]
+# 	notsurenames = [s.name for s in formpairsdict["notsure"]]
+# 	
+# 	return {"match":match, "nomatchnames":nomatchnames, "notsurenames":notsurenames}
+# 
+# 	
+# 
+# 
+# def findtrans(preciserefmanstars, autostars, scalingratio = 1.0, tolerance = 2.0, minnbrstars = 5, mindist = 100.0, nref = 10, nauto = 30, verbose=True):
+# 	
+# 	"""
+# 	Finds a rotation and shift between two catalogs (a big dirty one and a small handpicked one).
+# 	Both catalogs should be SORTED IN FLUX, and the second one should be smaller for max performance.
+# 	
+# 	Only the first nref stars of preciserefmanstars are considered for searching the possible matches, and furthermore only 
+# 	pairs farther then mindist are considered.
+# 	
+# 	tolerance is used when looking if a match was found.
+# 	
+# 	minnbrstars = as soon as this number of stars are identified, the algo stops, we look no further.
+# 	
+# 	The scalingratio parameter is a float to multiply with a distance of the autostars to match the same distance between the preciserefmanstars.
+# 	
+# 	We return a dict of 3 things :
+# 	- nbr of identified stars (-1 if failed)
+# 	- rotation angle (center = 0,0)
+# 	- shift
+# 	
+# 	This should then be used to transform your autostars, and then run listidentify between the catalogs if you want ...
+# 	This is done with the function formpairs
+# 	
+# 	"""
+# 	
+# 	# Think of a Hubble expansion with "origin" (0,0)
+# 	# We apply this to the image to align, so that it matches the distances in the reference image.
+# 	autostarscopy = copy.deepcopy(autostars)
+# 	zoomstarlist(autostarscopy, scalingratio)
+# 	
+# 	n = 0 # a counter for the number of tries
+# 	indentlist = [] # only used in case of failure
+# 	
+# 	for b, brightstar in enumerate(preciserefmanstars[:nref]):
+# 		for f, faintstar in enumerate(preciserefmanstars[:nref]):
+# 			if f == b: continue
+# 			stardistance = brightstar.distance(faintstar)
+# 			if stardistance < mindist : continue
+# 			
+# 			# We have a pair of stars from the preciserefmancat.
+# 			# Let's see if we find to stars in the autocat with a similar distance.
+# 			
+# 			for bc, brightcandidate in enumerate(autostarscopy[:nauto]):
+# 				for fc, faintcandidate in enumerate(autostarscopy[:nauto]):
+# 					if fc == bc: continue
+# 					candidatedistance =  brightcandidate.distance(faintcandidate)
+# 					if math.fabs(candidatedistance - stardistance)/stardistance > 0.05 :
+# 						# So if there is a disagreement larger then 5 percent...
+# 						continue
+# 					
+# 					# We now have a promising pair of pairs, let's check them out.
+# 					
+# 					n = n+1
+# 					
+# 					starangle = brightstar.trigangle(faintstar)
+# 					candidateangle = brightcandidate.trigangle(faintcandidate)
+# 					rotcandangle = (starangle - candidateangle) % 360.0	# value to "add" to cand to match the star
+# 					
+# 					# We apply this rotation to the bright candidate, to determine the shift :
+# 					testcand = copy.deepcopy(brightcandidate)
+# 					testcand.rotate(rotcandangle, (0, 0))
+# 					candshift = testcand.findshift(brightstar)
+# 					
+# 					# We apply the rotation and this shift to the full zoomed autostarlist :
+# 					testcandlist = copy.deepcopy(autostarscopy)
+# 					rotatestarlist(testcandlist, rotcandangle, (0, 0))
+# 					shiftstarlist(testcandlist, candshift)
+# 					
+# 					# We evaluate the match between the transformed autostars and the ref stars :
+# 					
+# 					pairsdict = formpairs(preciserefmanstars, testcandlist, tolerance = tolerance, onlysingle = True, verbose = False)
+# 					nbrids = len(pairsdict["idlist1"])
+# 					indentlist.append(nbrids)
+# 					
+# 					if nbrids >= minnbrstars:
+# 						# We got it !
+# 						
+# 						if verbose :
+# 							print "Number of tries : %i" % n
+# 							print "Distance difference : %.2f pixels" % math.fabs(candidatedistance - stardistance)
+# 							print "Candidate rotation angle : %.2f degrees" % rotcandangle
+# 							
+# 							print "Star pairs used :"
+# 							print brightstar
+# 							print faintstar
+# 							print brightcandidate
+# 							print faintcandidate
+# 							
+# 							print "Identified stars : %i / %i" % (nbrids, len(preciserefmanstars) )
+# 
+# 						return {"nbrids":nbrids, "angle":rotcandangle, "shift":candshift}
+# 
+# 	
+# 	if verbose :
+# 		print "I'm a superhero, but I failed"
+# 	if len(indentlist) > 0:
+# 		if verbose :
+# 			print "Maximum identified stars : %i" % max(indentlist)
+# 			
+# 	return {"nbrids":-1, "angle":0.0, "shift":(0.0, 0.0)}
+# 					
+# 
+# 
+# def writeforgeomap(filename, pairs):
+# 	"""
+# 	Writes an input catalog of corresponding star pairs, for geomap
+# 	Pair is a list of couples like (refstar, startoalign)
+# 	"""
+# 
+# 
+# 	import csv
+# 	
+# 	table = []	
+# 	for pair in pairs:
+# 		table.append([pair[0].x, pair[0].y, pair[1].x, pair[1].y])
+# 
+# 	geomap = open(filename, "wb") # b needed for csv
+# 	writer = csv.writer(geomap, delimiter="\t")
+# 	writer.writerows(table)
+# 	geomap.close()
+# 
 

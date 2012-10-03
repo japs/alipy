@@ -1,7 +1,7 @@
 Tutorial
 ========
 
-Minimalistic for now ...
+Minimalistic for now; below is a simple commented demo script. See the API doc of all these functions (search field on the left) for more information !
 
 ::
 		
@@ -13,7 +13,7 @@ Minimalistic for now ...
 	
 	identifications = alipy.ident.run(ref_image, images_to_align, visu=False)
 	# That's it -- all in one line.
-	# Put visu=True to get visualizations (nice but much slower)
+	# Put visu=True to get visualizations in form of png files (nice but much slower)
 	
 	# The output contains the transforms :
 	for id in identifications: # identifications is a list of the same length as images_to_align.
@@ -26,15 +26,30 @@ Minimalistic for now ...
 	
 	
 	# Minimal example of how to align images :
+	
+	outputshape = alipy.align.shape(ref_image)
+	# This is simply a tuple (width, height)... you could specify any other shape.
+	
 	for id in identifications:
 		if id.ok == True:
-			alipy.align.affineremap(id.ukn.filepath, id.trans, shape=(1500,1500), makepng=True)
+		
+			# Variant 1, using only scipy and the simple affine transorm :
+			alipy.align.affineremap(id.ukn.filepath, id.trans, shape=outputshape, makepng=True)
+			
+			# Variant 2, using geomap/gregister, correcting also for distortions :
+			alipy.align.irafalign(id.ukn.filepath, id.uknmatchstars, id.refmatchstars, shape=outputshape, makepng=False)
+			# id.uknmatchstars and id.refmatchstars are simply lists of corresponding Star objects.
+			
+			# By default, the aligned images are written into a directory "alipy_out".
 	
-	# To be followed ...
+	# To be continued ...
 
 			
 The most important functions (just testing sphinx links ...) :
  * :py:func:`alipy.ident.run`
+ * :py:func:`alipy.align.affineremap`
+ * :py:func:`alipy.align.irafalign`
+ * :py:class:`alipy.star.Star`
  * :py:class:`alipy.star.SimpleTransform`
 
 
