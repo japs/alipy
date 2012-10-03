@@ -1,10 +1,10 @@
 import star
-import pysex
-import quad
 import os
 import numpy as np
+import math
 import scipy.ndimage
 import pyfits
+import csv
 
 
 
@@ -21,7 +21,7 @@ def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_ou
 	:param shape: Output shape (width, height) 
 	:type shape: tuple
 
-	:param alifilepath: where to save the aligned image. If None, I put it in the default directory.
+	:param alifilepath: where to save the aligned image. If None, I will put it in the outdir directory.
 	:type alifilepath: string
 	
 	:param makepng: If True I make a png of the aligned image as well.
@@ -36,16 +36,17 @@ def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_ou
 	data = scipy.ndimage.interpolation.affine_transform(data, matrix, offset=offset, output_shape = shape)
 	
 	basename = os.path.splitext(os.path.basename(filepath))[0]
-	if not alifilepath:
-		#(imgdir, filename) = os.path.split(self.file)
-		#(common, ext) = os.path.splitext(filename)
-		#filepath = os.path.join(imgdir, common + "_affineremap.fits")
-		
-		if not os.path.isdir(outdir):
-			os.makedirs(outdir)
+	
+	if alifilepath == None:
 		alifilepath = os.path.join(outdir, basename + "_affineremap.fits")
+	else:	
+		outdir = os.path.split(alifilepath)[0]
+	if not os.path.isdir(outdir):
+		os.makedirs(outdir)
+		
 	
 	tofits(alifilepath, data, hdr = None, verbose = verbose)
+	
 	
 	if makepng:
 		try:
@@ -56,12 +57,24 @@ def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_ou
 		myimage = f2n.f2nimage(numpyarray=data, verbose=False)
 		myimage.setzscale("auto", "auto")
 		myimage.makepilimage("log", negative = False)
-		myimage.writetitle(basename + "_affineremap.fits")
+		myimage.writetitle(os.path.basename(alifilepath))
 		if not os.path.isdir(outdir):
 				os.makedirs(outdir)
-		myimage.tonet(os.path.join(outdir, basename + "_affineremap.png"))
+		myimage.tonet(os.path.join(outdir, os.path.basename(alifilepath)+".png"))
 
 
+
+def shape(filepath, verbose=True):
+	"""
+	Returns the 2D shape (width, height) of a FITS image.
+	"""
+	hdr = pyfits.getheader(filepath, 0)
+	if hdr["NAXIS"] != 2:
+		raise RuntimeError("I guess I don't work with > 2D image !")
+	if verbose:
+		print "Image shape of %s : (%i, %i)" % (os.path.basename(filepath), int(hdr["NAXIS1"]), int(hdr["NAXIS2"]))
+	return (int(hdr["NAXIS1"]), int(hdr["NAXIS2"]))
+	
 
 def fromfits(infilename, hdu = 0, verbose = True):
 	"""
@@ -108,3 +121,153 @@ def tofits(outfilename, pixelarray, hdr = None, verbose = True):
 		print "Wrote %s" % outfilename
 
 		
+
+def irafalign(filepath, uknstarlist, refstarlist, shape, alifilepath=None, outdir = "alipy_out", makepng=False, verbose=True):
+	"""
+	Uses iraf geomap and gregister to align the image. Three steps :
+	 * Write the matched source lists into an input file for geomap
+	 * Compute a geomap transform from these stars. 
+	 * Run gregister
+	
+	:param filepath: FITS file to be aligned
+	:type filepath: string
+	
+	:param uknstarlist: A list of stars from the "unknown" image to be aligned, that matches to ...
+	:type uknstarlist: list of Star objects
+	:param refstarlist: ... the list of corresponding stars in the reference image.
+	:type refstarlist: list of Star objects
+	
+	:param shape: Output shape (width, height) 
+	:type shape: tuple
+
+	:param alifilepath: where to save the aligned image. If None, I put it in the default directory.
+	:type alifilepath: string
+	
+	:param makepng: If True I make a png of the aligned image as well.
+	:type makepng: boolean
+
+	"""
+
+	try:
+		from pyraf import iraf
+	except ImportError:
+		print "Couldn't import pyraf !"
+		return
+
+	assert len(uknstarlist) == len(refstarlist)
+	if len(uknstarlist) < 2:
+		if verbose:
+			print "Not enough stars for using geomap !"
+		return
+		
+	basename = os.path.splitext(os.path.basename(filepath))[0]
+	geomapinpath = basename + ".geomapin"
+	geodatabasepath = basename + ".geodatabase"
+	if os.path.isfile(geomapinpath):
+		os.remove(geomapinpath)
+	if os.path.isfile(geodatabasepath):
+		os.remove(geodatabasepath)
+
+	
+	# Step 1, we write the geomap input.
+	table = []	
+	for (uknstar, refstar) in zip(uknstarlist, refstarlist):
+		table.append([refstar.x, refstar.y, uknstar.x, uknstar.y])
+	geomap = open(geomapinpath, "wb") # b needed for csv
+	writer = csv.writer(geomap, delimiter="\t")
+	writer.writerows(table)
+	geomap.close()
+	
+	
+	# Step 2, geomap
+		
+	iraf.unlearn(iraf.geomap)	
+	iraf.geomap.fitgeom = "rscale"		# You can change this to : shift, xyscale, rotate, rscale
+	iraf.geomap.function = "polynomial"	# Surface type
+	iraf.geomap.maxiter = 3			# Maximum number of rejection iterations
+	iraf.geomap.reject = 3.0		# Rejection limit in sigma units
+	
+	# other options you could specify :
+	#(xxorder=                    2) Order of x fit in x
+	#(xyorder=                    2) Order of x fit in y
+	#(xxterms=                 half) X fit cross terms type
+	#(yxorder=                    2) Order of y fit in x
+	#(yyorder=                    2) Order of y fit in y
+	#(yxterms=                 half) Y fit cross terms type
+	#(calctyp=                 real) Computation type
+
+	iraf.geomap.transfo = "broccoli"	# keep it
+	iraf.geomap.interac = "no"		# keep it
+	iraf.geomap.verbose = "yes"		# keep it
+	#iraf.geomap.results = "bla.summary" # The optional results summary files
+	
+	geomapblabla = iraf.geomap(input=geomapinpath, database=geodatabasepath, xmin = 1, xmax = shape[0], ymin = 1, ymax = shape[1], Stdout=1)
+	
+	# We read this output ...
+	for line in geomapblabla:
+		if "X and Y scale:" in line:
+			mapscale = line.split()[4:6]
+		if "Xin and Yin fit rms:" in line:
+			maprmss = line.split()[-2:]
+		if "X and Y axis rotation:" in line:
+			mapangles = line.split()[-4:-2]
+		if "X and Y shift:" in line:
+			mapshifts = line.split()[-4:-2]
+	
+	geomaprms = math.sqrt(float(maprmss[0])*float(maprmss[0]) + float(maprmss[1])*float(maprmss[1]))
+	geomapangle = float(mapangles[0])# % 360.0
+	geomapscale = 1.0/float(mapscale[0])
+	
+	if mapscale[0] != mapscale[1]:
+		raise RuntimeError("Error reading geomap scale")
+	if verbose:
+		print "IRAF geomap : Rotation %+11.6f [deg], scale %8.6f, RMS %.3f [pixel]" % (geomapangle, geomapscale, geomaprms)
+	
+	# Step 3
+	
+	if alifilepath == None:
+		alifilepath = os.path.join(outdir, basename + "_gregister.fits")
+	else:	
+		outdir = os.path.split(alifilepath)[0]
+	if not os.path.isdir(outdir):
+		os.makedirs(outdir)
+	if os.path.isfile(alifilepath):
+		os.remove(alifilepath)
+	
+
+	iraf.unlearn(iraf.gregister)
+	iraf.gregister.geometry = "geometric"	# linear, distortion, geometric
+	iraf.gregister.interpo = "spline3"	# linear, spline3
+	iraf.gregister.boundary = "constant"	# padding with zero
+	iraf.gregister.constant = 0.0
+	iraf.gregister.fluxconserve = "yes"
+	
+	if verbose:
+		print "IRAF gregister ..."
+
+	regblabla = iraf.gregister(input = filepath, output = alifilepath, database = geodatabasepath, transform = "broccoli", Stdout=1)
+
+	if verbose:
+		print "IRAF gregister done !"
+	
+	if os.path.isfile(geomapinpath):
+		os.remove(geomapinpath)
+	if os.path.isfile(geodatabasepath):
+		os.remove(geodatabasepath)
+
+	
+	if makepng:
+		try:
+			import f2n
+		except ImportError:
+			print "Couldn't import f2n -- install it !"
+			return
+		myimage = f2n.fromfits(alifilepath, verbose=False)
+		myimage.setzscale("auto", "auto")
+		myimage.makepilimage("log", negative = False)
+		myimage.writetitle(os.path.basename(alifilepath))
+		if not os.path.isdir(outdir):
+				os.makedirs(outdir)
+		myimage.tonet(os.path.join(outdir, os.path.basename(alifilepath)+".png"))
+
+
