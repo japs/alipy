@@ -16,7 +16,7 @@ Minimalistic for now ...
 	# Put visu=True to get visualizations (nice but much slower)
 	
 	# The output contains the transforms :
-	for id in identifications: # identifications is a lists of objects as long as to_align_images.
+	for id in identifications: # identifications is a list of the same length as images_to_align.
 		if id.ok == True: # i.e., if it worked
 			
 			print "%20s %20s" % (id.ukn.name, id.trans) # This is a alipy.star.SimpleTransform object
@@ -29,7 +29,8 @@ Minimalistic for now ...
 	for id in identifications:
 		if id.ok == True:
 			alipy.align.affineremap(id.ukn.filepath, id.trans, shape=(1500,1500), makepng=True)
-			
+	
+	# To be followed ...
 
 			
 The most important functions (just testing sphinx links ...) :
