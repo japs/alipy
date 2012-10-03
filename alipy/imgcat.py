@@ -28,11 +28,13 @@ class ImgCat:
 		
 		self.cat = cat
 		self.starlist = []
+		self.mindist = 0.0
+		self.xlim = (0.0, 0.0) # Will be set using the catalog -- no need for the FITS image.
+		self.ylim = (0.0, 0.0)
+
 		self.quadlist = []
 		self.quadlevel = 0 # encodes what kind of quads have already been computed
 		
-		self.xlim = (0, 0) # Will be set using the catalog -- no need for the FITS image.
-		self.ylim = (0, 0)
 	
 	def __str__(self):
 		return "%20s: approx %4i x %4i, %4i stars, %4i quads, quadlevel %i" % (os.path.basename(self.filepath),
@@ -56,6 +58,10 @@ class ImgCat:
 			(xmin, xmax, ymin, ymax) = star.area(self.starlist, border=0.01)
 			self.xlim = (xmin, xmax)
 			self.ylim = (ymin, ymax)
+			
+			# Given this starlists, what is a good minimal distance for stars in quads ?
+ 			self.mindist = min(min(xmax - xmin, ymax - ymin) / 10.0, 30.0)
+ 				
 		else:
 			raise RuntimeError("No cat : call makecat first !")
 	
@@ -69,15 +75,15 @@ class ImgCat:
 		if verbose:
 			print "Making more quads, from quadlevel %i ..." % self.quadlevel
 		if self.quadlevel == 0:
-			self.quadlist.extend(quad.makequads1(self.starlist, n=7, verbose=verbose))
+			self.quadlist.extend(quad.makequads1(self.starlist, n=7, d=self.mindist, verbose=verbose))
 		elif self.quadlevel == 1:
-			self.quadlist.extend(quad.makequads2(self.starlist, f=3, n=5, verbose=verbose))
+			self.quadlist.extend(quad.makequads2(self.starlist, f=3, n=5, d=self.mindist, verbose=verbose))
 		elif self.quadlevel == 2:
-			self.quadlist.extend(quad.makequads2(self.starlist, f=6, n=5, verbose=verbose))
+			self.quadlist.extend(quad.makequads2(self.starlist, f=6, n=5, d=self.mindist, verbose=verbose))
 		elif self.quadlevel == 3:
-			self.quadlist.extend(quad.makequads2(self.starlist, f=12, n=5, verbose=verbose))
+			self.quadlist.extend(quad.makequads2(self.starlist, f=12, n=5, d=self.mindist, verbose=verbose))
 		elif self.quadlevel == 4:
-			self.quadlist.extend(quad.makequads2(self.starlist, f=10, n=6, s=3, verbose=verbose))
+			self.quadlist.extend(quad.makequads2(self.starlist, f=10, n=6, s=3, d=self.mindist, verbose=verbose))
 
 		else:
 			return False
@@ -96,7 +102,7 @@ class ImgCat:
 		except ImportError:
 			print "Couldn't import f2n -- install it !"
 			return
-		
+				
 		if verbose:
 			print "Writing png ..."
 		myimage = f2n.fromfits(self.filepath, verbose=False)
@@ -126,20 +132,22 @@ class ImgCat:
 		
 		plt.figure(figsize=(10, 10))
 		
-		a = star.listtoarray(self.starlist, full=True)
-		if flux:
-			f = np.log10(a[:,2])
-			fmax = np.max(f)
-			fmin = np.min(f)
-			f = 1.0 + 8.0 * (f-fmin)/(fmax-fmin)
-			plt.scatter(a[:,0], a[:,1], s=f, color="black")
-		else:
-			plt.plot(a[:,0], a[:,1], marker=",", ls="none", color="black")
+		if len(self.starlist) >= 2:
+			a = star.listtoarray(self.starlist, full=True)
+			if flux:
+				f = np.log10(a[:,2])
+				fmax = np.max(f)
+				fmin = np.min(f)
+				f = 1.0 + 8.0 * (f-fmin)/(fmax-fmin)
+				plt.scatter(a[:,0], a[:,1], s=f, color="black")
+			else:
+				plt.plot(a[:,0], a[:,1], marker=",", ls="none", color="black")
 		
-		for quad in self.quadlist:
-			polycorners = star.listtoarray(quad.stars)
-			polycorners = ccworder(polycorners)
-			plt.fill(polycorners[:,0], polycorners[:,1], alpha=0.03, ec="none")
+		if len(self.quadlist) != 0:		
+			for quad in self.quadlist:
+				polycorners = star.listtoarray(quad.stars)
+				polycorners = ccworder(polycorners)
+				plt.fill(polycorners[:,0], polycorners[:,1], alpha=0.03, ec="none")
 	
 		plt.xlim(self.xlim)
 		plt.ylim(self.ylim)

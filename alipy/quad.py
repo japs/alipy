@@ -107,30 +107,50 @@ def mindist(fourstars):
 
 
 
-def makequads1(starlist, n=7, verbose=True):
+def makequads1(starlist, n=7, s=0, d=50.0, verbose=True):
 	"""
 	First trivial quad maker.
 	Makes combis of the n brightest stars.
+	
+	:param n: number of stars to consider (brightest ones).
+	:type n: int
+	:param s: how many of the brightest stars should I skip ?
+		This feature is useful to avoid building quads with nearly saturated stars that are not
+		available in other exposures.
+	:type s: int
+	:param d: minimal distance between stars
+	:type d: float
+	
 	"""
 	quadlist = []
 	sortedstars = star.sortstarlistbyflux(starlist)
 
-	for fourstars in itertools.combinations(sortedstars[:n], 4):
-		if mindist(fourstars) > 50.0:
+	for fourstars in itertools.combinations(sortedstars[s:s+n], 4):
+		if mindist(fourstars) > d:
 				quadlist.append(Quad(fourstars))	
 	
 	if verbose:
-		print "Made %4i quads from %4i stars (combi n=%i)" % (len(quadlist), len(starlist), n)
+		print "Made %4i quads from %4i stars (combi n=%i s=%i d=%.1f)" % (len(quadlist), len(starlist), n, s, d)
 		
 	return quadlist
 
 
 
 	
-def makequads2(starlist, f=5.0, n=6, s=0, verbose=True):
+def makequads2(starlist, f=5.0, n=6, s=0, d=50.0, verbose=True):
 	"""
 	Similar, but fxf in subareas roughly f times smaller than the full frame.
 	s allows to skip the brightest stars in each region
+	
+	:param f: smallness of the subareas
+	:type f: float
+	:param n: number of stars to consider in each subarea
+	:type n: int
+	:param d: minimal distance between stars
+	:type d: float
+	:param s: number of brightest stars to skip in each subarea
+	:type s: int
+	
 	"""
 	quadlist = []
 	sortedstars = star.sortstarlistbyflux(starlist)
@@ -145,11 +165,11 @@ def makequads2(starlist, f=5.0, n=6, s=0, verbose=True):
 			#closest = [s["star"] for s in das[0:4]]
 			brightestwithinr = star.sortstarlistbyflux([element["star"] for element in das if element["dist"] <= r])[s:s+n]
 			for fourstars in itertools.combinations(brightestwithinr, 4):
-				if mindist(fourstars) > 20.0:
+				if mindist(fourstars) > d:
 					quadlist.append(Quad(fourstars))
 			
 	if verbose:
-		print "Made %4i quads from %4i stars (combi sub f=%.1f n=%i s=%i)" % (len(quadlist), len(starlist), f, n, s)
+		print "Made %4i quads from %4i stars (combi sub f=%.1f n=%i s=%i d=%.1f)" % (len(quadlist), len(starlist), f, n, s, d)
 
 	return quadlist
 
@@ -161,6 +181,9 @@ def removeduplicates(quadlist, verbose=True):
 	"""
 	Returns a quadlist without quads with identical hashes...
 	"""
+	# To avoid crash in lexsort if quadlist is too small :
+	if len(quadlist) < 2:
+		return quadlist
 	hasharray = np.array([q.hash for q in quadlist])
 	
 	order = np.lexsort(hasharray.T)
@@ -183,6 +206,12 @@ def proposecands(uknquadlist, refquadlist, n=5, verbose=True):
 	Function that identifies similar quads between the unknown image and a reference.
 	Returns a dict of (uknquad, refquad, dist, trans)
 	"""
+	# Nothing to do if the quadlists are empty ...
+	if len(uknquadlist) == 0 or len(refquadlist) == 0:
+		if verbose:
+			print "No quads to propose ..."
+		return []
+	
 	if verbose:
 		print "Finding %i best candidates among %i x %i (ukn x ref)" % (n, len(uknquadlist), len(refquadlist))
 	uknhashs = np.array([q.hash for q in uknquadlist])	
@@ -204,7 +233,7 @@ def proposecands(uknquadlist, refquadlist, n=5, verbose=True):
 		
 		candlist.append(cand)
 		if verbose:
-			print "Candidate %2i : distance %12.8f  : %s" % (i+1, cand["dist"], str(cand["trans"]))
+			print "Cand %2i (dist. %12.8f) : %s" % (i+1, cand["dist"], str(cand["trans"]))
 	
 	return candlist
 	

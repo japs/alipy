@@ -125,6 +125,13 @@ def area(starlist, border=0.01):
 	Returns the area covered by the stars.
 	Border is relative to max-min
 	"""
+	if len(starlist) == 0:
+		return np.array([0, 1, 0, 1])
+
+	if len(starlist) == 1:
+		star = starlist[0]
+		return np.array([star.x - 0.5, star.x + 0.5, star.y - 0.5, star.y + 0.5])
+
 	a = listtoarray(starlist)
 	(xmin, xmax) = (np.min(a[:,0]), np.max(a[:,0]))
 	(ymin, ymax) = (np.min(a[:,1]), np.max(a[:,1]))
@@ -392,7 +399,7 @@ class SimpleTransform:
 		return [self.applystar(star) for star in starlist]
 	
 	
-def fitstars(uknstars, refstars):
+def fitstars(uknstars, refstars, verbose=True):
 	"""
 	I return the transform that puts the unknown stars (uknstars) onto the refstars.
 	If you supply only two stars, this is using linalg.solve() -- perfect solution.
@@ -403,6 +410,10 @@ def fitstars(uknstars, refstars):
 	"""
 	
 	assert len(uknstars) == len(refstars)
+	if len(uknstars) < 2:
+		if verbose:
+			print "Sorry I cannot fit a transform on less than 2 stars."
+		return None
 	
 	# ukn * x = ref
 	# x is the transform (a, b, c, d)

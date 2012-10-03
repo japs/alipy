@@ -38,6 +38,17 @@ class Identification:
 		Find the best trans given the quads, and tests if the match is sufficient	
 		"""
 		
+		# Some robustness checks
+		if len(self.ref.starlist) < 4:
+			if verbose:
+				print "Not enough stars in the reference catalog."
+			return
+		if len(self.ukn.starlist) < 4:
+			if verbose:
+				print "Not enough stars in the unknown catalog."
+			return
+ 
+ 		
 		# First question : how many stars should match ?
 		if len(self.ukn.starlist) < 5: # Then we should simply try to get the smallest distance...
 			minnident = 4
@@ -57,7 +68,9 @@ class Identification:
 			
 			# Find the best candidates
 			cands = quad.proposecands(self.ukn.quadlist, self.ref.quadlist, n=4, verbose=verbose)
-			if cands[0]["dist"] < minquaddist:
+			
+			if len(cands) != 0 and cands[0]["dist"] < minquaddist:
+				# If no quads are available, we directly try to make more ones.
 				for cand in cands:
 					# Check how many stars are identified...					
 					nident = star.identify(self.ukn.starlist, self.ref.starlist, trans=cand["trans"], r=r, verbose=verbose, getstars=False)
@@ -83,9 +96,11 @@ class Identification:
 			if verbose:
 				print "Refitting transform (before/after) :"
 				print self.trans
-			self.trans = star.fitstars(self.uknmatchstars, self.refmatchstars)
-			if verbose:
-				print self.trans
+			newtrans = star.fitstars(self.uknmatchstars, self.refmatchstars)
+			if newtrans != None:
+				self.trans = newtrans
+				if verbose:
+					print self.trans
 			# Generating final matched star lists :
 			(self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist, self.ref.starlist, trans=self.trans, r=r, verbose=verbose, getstars=True)
 
