@@ -27,8 +27,13 @@ And then,
 	cd alipy
 	python setup.py install
 
-	
-More info about the installation : `<http://docs.python.org/distutils/>`_.
+or maybe
+::
+
+	python setup.py install --user
+
+... if you don't have write access to the global site-packages directory of your machine.
+More info about the installation : `<http://docs.python.org/install/>`_.
 
 
 To generate this documentation
