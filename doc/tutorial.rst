@@ -52,4 +52,3 @@ The most important functions (just testing sphinx links ...) :
  * :py:class:`alipy.star.Star`
  * :py:class:`alipy.star.SimpleTransform`
 
-

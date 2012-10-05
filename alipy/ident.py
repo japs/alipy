@@ -163,19 +163,18 @@ class Identification:
 
 
 
-def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexrerun=True, sexkeepcat=False, verbose=True):
+def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=False, sexrerun=True, verbose=True):
 	"""
 	Top-level function to identify transorms between images.
 	Returns a list of alipy.Identification objects that contain all the info to go further.
-	TODO : MAKE THIS GUY ACCEPT EXISTING ASCIIDATA CATALOGS
-
-	:param ref: path to FITS file that acts as the "reference".
+	
+	:param ref: path to a FITS image file that will act as the "reference".
 	:type ref: string
 	
-	:param ukns: list of paths to FITS files to be "aligned" on the reference. **ukn** stands for unknown ...
+	:param ukns: list of paths to FITS files to be "aligned" on the reference. **ukn** stands for unknown.
 	:type ref: list of strings
 	
-	:param visu: If yes, I'll draw some visualizations of the process (good to understand problems ...)
+	:param visu: If yes, I'll draw some visualizations of the process (good to understand problems, if the identification fails).
 	:type visu: boolean
 	
 	:param skipsaturated: Should I skip saturated stars ?
@@ -185,6 +184,15 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexrerun=True
 	:type r: float
 	:param n: Number of brightest stars of each image to consider (default 500 should be fine).
 	:type n: int
+	
+	:param sexkeepcat: Put this to True if you want me to keep the SExtractor catalogs (in a dir "alipy_cats").
+	:type sexkeepcat: boolean
+	:param sexrerun: Put this to False if you want me to check if I have some previously kept catalogs (with sexkeepcat=True),
+		instead of running SExtractor again on the images.
+	:type sexrerun: boolean
+	
+	.. todo:: Make this guy accept existing asciidata catalogs, instead of only FITS images.
+
 	
 	"""
 	

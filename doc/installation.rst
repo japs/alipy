@@ -11,7 +11,7 @@ We need python, numpy, scipy, matplotlib, and :
  * `f2n <http://obswww.unige.ch/~tewes/f2n_dot_py/>`_ : **optional**, but very useful to make control visualizations
  * `PyRAF/IRAF <http://www.stsci.edu/institute/software_hardware/pyraf>`_ : **optional**, only needed if you want to use IRAF's geomap/gregister image alignment
 
-We use `pysex <http://pypi.python.org/pypi/pysex/>`_ to interact with SExtractor, but pysex comes bundled with alipy -- no need to install it.
+We use `pysex <http://pypi.python.org/pypi/pysex/>`_ by Nicolas Cantale to interact with SExtractor, but pysex comes bundled with alipy -- no need to install it.
 
 
 Download
