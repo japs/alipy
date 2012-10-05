@@ -41,11 +41,11 @@ class ImgCat:
 			self.xlim[1] - self.xlim[0], self.ylim[1] - self.ylim[0],
 			len(self.starlist), len(self.quadlist), self.quadlevel)
 	
-	def makecat(self, rerun=False, verbose=True):
+	def makecat(self, rerun=True, keepcat=False, verbose=True):
 		self.cat = pysex.run(self.filepath, conf_args={'DETECT_THRESH':3.0, 'ANALYSIS_THRESH':3.0, 'DETECT_MINAREA':10,
 		'PIXEL_SCALE':1.0, 'SEEING_FWHM':2.0, "FILTER":"Y"},
 		params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER'],
-		keepcat=True, rerun=rerun, catdir="alipy_cats")
+		rerun=rerun, keepcat=keepcat, catdir="alipy_cats")
 
 	
 	def makestarlist(self, skipsaturated=False, n=200, verbose=True):

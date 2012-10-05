@@ -163,7 +163,7 @@ class Identification:
 
 
 
-def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, verbose=True):
+def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexrerun=True, sexkeepcat=False, verbose=True):
 	"""
 	Top-level function to identify transorms between images.
 	Returns a list of alipy.Identification objects that contain all the info to go further.
@@ -191,7 +191,7 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, verbose=True)
 	if verbose:
 		print 10*"#", " Preparing reference ..."
 	ref = imgcat.ImgCat(ref)
-	ref.makecat(rerun=False, verbose=verbose)
+	ref.makecat(rerun=sexrerun, keepcat=sexkeepcat, verbose=verbose)
 	ref.makestarlist(skipsaturated=skipsaturated, n=n, verbose=verbose)
 	if visu:
 		ref.showstars(verbose=verbose)
@@ -205,7 +205,7 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, verbose=True)
 			print 10*"#", "Processing %s" % (ukn)
 		
 		ukn = imgcat.ImgCat(ukn)
-		ukn.makecat(rerun=False, verbose=verbose)
+		ukn.makecat(rerun=sexrerun, keepcat=sexkeepcat, verbose=verbose)
 		ukn.makestarlist(skipsaturated=skipsaturated, n=n, verbose=verbose)
 		if visu:
 			ukn.showstars(verbose=verbose)

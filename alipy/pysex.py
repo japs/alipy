@@ -136,12 +136,14 @@ def run(image='', imageref='', params=[], conf_file=None, conf_args={}, keepcat=
 	(imgdir, filename) = os.path.split(image)
 	(common, ext) = os.path.splitext(filename)
 	catfilename = common + ".pysexcat" # Does not get deleted by _cleanup(), even if in working dir !
-	if catdir:
-		if not os.path.isdir(catdir):
-			os.makedirs(catdir)
-			#raise RuntimeError("Directory \"%s\" for pysex cats does not exist. Make it !" % (catdir))
+	if keepcat:
+		if catdir:
+			if not os.path.isdir(catdir):
+				os.makedirs(catdir)
+				#raise RuntimeError("Directory \"%s\" for pysex cats does not exist. Make it !" % (catdir))
+
+	if catdir:	
 		catpath = os.path.join(catdir, catfilename)
-		
 	else:
 		catpath = os.path.join(imgdir, catfilename)
 	
