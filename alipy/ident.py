@@ -3,12 +3,29 @@ import quad
 import star
 import sys
 import os
+import numpy as np
 	
 
 class Identification:
 	"""
 	Represents the identification of a transform between two ImgCat objects.
 	Regroups all the star catalogs, the transform, the quads, the candidate, etc.
+	
+	All instance attributes are listed below.
+		
+	:ivar ref: ImgCat object of the reference image
+	:ivar ukn: ImgCat object of the unknown image
+	:ivar ok: boolean, True if the idendification was successful.
+	:ivar trans: The SimpleTransform object that represents the geometrical transform from ukn to ref.
+	:ivar uknmatchstars: A list of Star objects of the catalog of the unknown image...
+	:ivar refmatchstars: ... that correspond to these Star objects of the reference image.
+	:ivar medfluxratio: Median flux ratio between the images: "ukn * medfluxratio = ref"
+		A high value corresponds to a shallow unknown image.
+		It gets computed by the method calcfluxratio, using the matched stars.
+	:ivar stdfluxratio: Standard error on the flux ratios of the matched stars.
+
+		
+	
 	"""
 
 	def __init__(self, ref, ukn):
@@ -19,7 +36,6 @@ class Identification:
 		:param ukn: The unknown image, whose transform will be adjusted to match the ref
 		:type ukn: ImgCat object
 		
-			
 		"""
 		self.ref = ref
 		self.ukn = ukn
@@ -31,6 +47,8 @@ class Identification:
 		self.refmatchstars = []
 		self.cand = None
 		
+		self.medfluxratio = None # ukn * medfluxratio --> ref (high value means shallow image)
+		self.stdfluxratio = None
 
 		
 	def findtrans(self, r = 5.0, verbose=True):
@@ -111,7 +129,29 @@ class Identification:
 			if verbose:
 				print "Failed to find transform !"
 			
-			
+	def calcfluxratio(self, verbose=True):
+		"""
+		Computes a very simple median flux ratio between the images.
+		The purpose is simply to get a crude guess, for images with e.g. different exposure times.
+		Given that we have these corresponding star lists in hand, this is trivial to do once findtrans was run.
+		"""
+		assert len(self.uknmatchstars) == len(self.refmatchstars)
+		if len(self.refmatchstars) == 0:
+			if verbose:
+				print "No matching stars to compute flux ratio !"
+			return
+		
+		reffluxes = star.listtoarray(self.refmatchstars, full=True)[:,2]
+		uknfluxes = star.listtoarray(self.uknmatchstars, full=True)[:,2]
+		fluxratios = reffluxes / uknfluxes
+		
+		self.medfluxratio = float(np.median(fluxratios))
+		self.stdfluxratio = float(np.std(fluxratios))
+		
+		if verbose:
+			print "Computed flux ratio from %i matches : median %.2f, std %.2f" % (len(reffluxes), self.medfluxratio, self.stdfluxratio)
+		
+	
 	
 	def showmatch(self, show=False, verbose=True):
 		"""
@@ -166,7 +206,7 @@ class Identification:
 def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=False, sexrerun=True, verbose=True):
 	"""
 	Top-level function to identify transorms between images.
-	Returns a list of alipy.Identification objects that contain all the info to go further.
+	Returns a list of Identification objects that contain all the info to go further.
 	
 	:param ref: path to a FITS image file that will act as the "reference".
 	:type ref: string
@@ -220,6 +260,7 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=Fa
 
 		idn = Identification(ref, ukn)
 		idn.findtrans(verbose=verbose, r=r)
+		idn.calcfluxratio(verbose=verbose)
 		identifications.append(idn)
 		
 		if visu:

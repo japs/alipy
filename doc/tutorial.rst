@@ -15,16 +15,18 @@ Minimalistic for now; below is a simple commented demo script. See the API doc o
 	# That's it -- all in one line.
 	# Put visu=True to get visualizations in form of png files (nice but much slower)
 	
-	# The output contains the transforms :
-	for id in identifications: # identifications is a list of the same length as images_to_align.
+	# The output is a list of Identification objects, which contain the transforms :
+	for id in identifications: # list of the same length as images_to_align.
 		if id.ok == True: # i.e., if it worked
 			
-			print "%20s %20s" % (id.ukn.name, id.trans) # This is a alipy.star.SimpleTransform object
+			print "%20s : %20s, flux ratio %.2f" % (id.ukn.name, id.trans, id.medfluxratio)
+			# id.trans is a alipy.star.SimpleTransform object. Instead of printing it out as a string,
+			# you can directly access its parameters :
 			#print id.trans.v # the raw data, [r*cos(theta)  r*sin(theta)  r*shift_x  r*shift_y]
 			#print id.trans.matrixform()
 			#print id.trans.inverse() # this returns a new SimpleTransform object
-	
-	
+			
+		
 	# Minimal example of how to align images :
 	
 	outputshape = alipy.align.shape(ref_image)
@@ -45,10 +47,11 @@ Minimalistic for now; below is a simple commented demo script. See the API doc o
 	# To be continued ...
 
 			
-The most important functions (just testing sphinx links ...) :
- * :py:func:`alipy.ident.run`
- * :py:func:`alipy.align.affineremap`
- * :py:func:`alipy.align.irafalign`
+The important functions and classes (links take you to the API documentation) :
+ * :py:func:`alipy.ident.run` : the function that returns the :py:class:`~alipy.ident.Identification` objects.
+ * :py:class:`alipy.ident.Identification` : the objects returned by the above :py:func:`~alipy.ident.run`. Note that these objects also contain lists of the matched stars.
  * :py:class:`alipy.star.Star`
  * :py:class:`alipy.star.SimpleTransform`
+ * :py:func:`alipy.align.affineremap`
+ * :py:func:`alipy.align.irafalign`
 
