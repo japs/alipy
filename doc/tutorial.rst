@@ -1,7 +1,7 @@
 Tutorial
 ========
 
-Minimalistic for now; below is a simple commented demo script. See the API doc of all these functions (search field on the left) for more information !
+Below is a highly commented demo script. Note that all the SExtractor and catalog identification stuff happens in **one** single line. The rest of this demo is a quick illustration of what can be done with the identifications in hand. See the API doc of these function and classes (search field on the left) for detailed information !
 
 ::
 		
@@ -12,7 +12,7 @@ Minimalistic for now; below is a simple commented demo script. See the API doc o
 	ref_image = "ref.fits"
 	
 	identifications = alipy.ident.run(ref_image, images_to_align, visu=False)
-	# That's it -- all in one line.
+	# That's it !
 	# Put visu=True to get visualizations in form of png files (nice but much slower)
 	
 	# The output is a list of Identification objects, which contain the transforms :
