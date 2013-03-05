@@ -8,7 +8,7 @@ import csv
 
 
 
-def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_out", makepng=False, verbose=True):
+def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_out", makepng=False, hdu=0, verbose=True):
 	"""
 	Apply the simple affine transform to the image and saves the result as FITS, without using pyraf.
 	
@@ -27,12 +27,15 @@ def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_ou
 	:param makepng: If True I make a png of the aligned image as well.
 	:type makepng: boolean
 
+	:param hdu: Select the hdu of the fits file that you want to process.
+
+
 	"""
 	inv = transform.inverse()
 	(matrix, offset) = inv.matrixform()
 	#print matrix, offset
 	
-	data, hdr = fromfits(filepath, hdu = 0, verbose = verbose)
+	data, hdr = fromfits(filepath, hdu = hdu, verbose = verbose)
 	data = scipy.ndimage.interpolation.affine_transform(data, matrix, offset=offset, output_shape = shape)
 	
 	basename = os.path.splitext(os.path.basename(filepath))[0]
@@ -64,11 +67,11 @@ def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_ou
 
 
 
-def shape(filepath, verbose=True):
+def shape(filepath, hdu=0, verbose=True):
 	"""
 	Returns the 2D shape (width, height) of a FITS image.
 	"""
-	hdr = pyfits.getheader(filepath, 0)
+	hdr = pyfits.getheader(filepath, hdu)
 	if hdr["NAXIS"] != 2:
 		raise RuntimeError("I guess I don't work with > 2D image !")
 	if verbose:
@@ -122,7 +125,7 @@ def tofits(outfilename, pixelarray, hdr = None, verbose = True):
 
 		
 
-def irafalign(filepath, uknstarlist, refstarlist, shape, alifilepath=None, outdir = "alipy_out", makepng=False, verbose=True):
+def irafalign(filepath, uknstarlist, refstarlist, shape, alifilepath=None, outdir = "alipy_out", makepng=False, hdu=0, verbose=True):
 	"""
 	Uses iraf geomap and gregister to align the image. Three steps :
 	 * Write the matched source lists into an input file for geomap
@@ -146,6 +149,10 @@ def irafalign(filepath, uknstarlist, refstarlist, shape, alifilepath=None, outdi
 	:param makepng: If True I make a png of the aligned image as well.
 	:type makepng: boolean
 
+	:param hdu: Select the hdu of the fits file that you want to process.
+
+
+	
 	"""
 
 	try:
@@ -245,7 +252,7 @@ def irafalign(filepath, uknstarlist, refstarlist, shape, alifilepath=None, outdi
 	if verbose:
 		print "IRAF gregister ..."
 
-	regblabla = iraf.gregister(input = filepath, output = alifilepath, database = geodatabasepath, transform = "broccoli", Stdout=1)
+	regblabla = iraf.gregister(input = filepath+'[%s]'%hdu, output = alifilepath, database = geodatabasepath, transform = "broccoli", Stdout=1)
 
 	if verbose:
 		print "IRAF gregister done !"
