@@ -203,7 +203,7 @@ class Identification:
 
 
 
-def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=False, sexrerun=True, verbose=True):
+def run(ref, ukns, hdu=0, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=False, sexrerun=True, verbose=True):
 	"""
 	Top-level function to identify transorms between images.
 	Returns a list of Identification objects that contain all the info to go further.
@@ -213,6 +213,8 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=Fa
 	
 	:param ukns: list of paths to FITS files to be "aligned" on the reference. **ukn** stands for unknown.
 	:type ref: list of strings
+	
+	:param hdu: The hdu of the fits files (same for all) that you want me to use. 0 is primary. If multihdu, 1 is usually science.
 	
 	:param visu: If yes, I'll draw some visualizations of the process (good to understand problems, if the identification fails).
 	:type visu: boolean
@@ -238,7 +240,7 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=Fa
 	
 	if verbose:
 		print 10*"#", " Preparing reference ..."
-	ref = imgcat.ImgCat(ref)
+	ref = imgcat.ImgCat(ref, hdu=hdu)
 	ref.makecat(rerun=sexrerun, keepcat=sexkeepcat, verbose=verbose)
 	ref.makestarlist(skipsaturated=skipsaturated, n=n, verbose=verbose)
 	if visu:
@@ -252,7 +254,7 @@ def run(ref, ukns, visu=True, skipsaturated=False, r = 5.0, n=500, sexkeepcat=Fa
 		if verbose:
 			print 10*"#", "Processing %s" % (ukn)
 		
-		ukn = imgcat.ImgCat(ukn)
+		ukn = imgcat.ImgCat(ukn, hdu=hdu)
 		ukn.makecat(rerun=sexrerun, keepcat=sexkeepcat, verbose=verbose)
 		ukn.makestarlist(skipsaturated=skipsaturated, n=n, verbose=verbose)
 		if visu:

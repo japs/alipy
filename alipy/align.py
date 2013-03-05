@@ -27,7 +27,7 @@ def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_ou
 	:param makepng: If True I make a png of the aligned image as well.
 	:type makepng: boolean
 
-	:param hdu: Select the hdu of the fits file that you want to process.
+	:param hdu: The hdu of the fits file that you want me to use. 0 is primary. If multihdu, 1 is usually science.
 
 
 	"""
@@ -67,13 +67,17 @@ def affineremap(filepath, transform, shape, alifilepath=None, outdir = "alipy_ou
 
 
 
-def shape(filepath, hdu=0, verbose=True):
+def shape(filepath, hdu = 0, verbose=True):
 	"""
 	Returns the 2D shape (width, height) of a FITS image.
+	
+	:param hdu: The hdu of the fits file that you want me to use. 0 is primary. If multihdu, 1 is usually science.
+
+	
 	"""
 	hdr = pyfits.getheader(filepath, hdu)
 	if hdr["NAXIS"] != 2:
-		raise RuntimeError("I guess I don't work with > 2D image !")
+		raise RuntimeError("Hmm, this hdu is not a 2D image !")
 	if verbose:
 		print "Image shape of %s : (%i, %i)" % (os.path.basename(filepath), int(hdr["NAXIS1"]), int(hdr["NAXIS2"]))
 	return (int(hdr["NAXIS1"]), int(hdr["NAXIS2"]))
@@ -149,7 +153,7 @@ def irafalign(filepath, uknstarlist, refstarlist, shape, alifilepath=None, outdi
 	:param makepng: If True I make a png of the aligned image as well.
 	:type makepng: boolean
 
-	:param hdu: Select the hdu of the fits file that you want to process.
+	:param hdu: The hdu of the fits file that you want me to use. 0 is primary. If multihdu, 1 is usually science.
 
 
 	
@@ -252,7 +256,7 @@ def irafalign(filepath, uknstarlist, refstarlist, shape, alifilepath=None, outdi
 	if verbose:
 		print "IRAF gregister ..."
 
-	regblabla = iraf.gregister(input = filepath+'[%s]'%hdu, output = alifilepath, database = geodatabasepath, transform = "broccoli", Stdout=1)
+	regblabla = iraf.gregister(input = '%s[%s]' % (filepath, hdu), output = alifilepath, database = geodatabasepath, transform = "broccoli", Stdout=1)
 
 	if verbose:
 		print "IRAF gregister done !"

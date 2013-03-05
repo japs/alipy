@@ -208,14 +208,17 @@ def readmancat(mancatfilepath, verbose="True"):
 	return table
 
 
-def readsexcat(sexcat, verbose=True, maxflag = 3, posflux = True, minfwhm=2.0, propfields=[]):
+def readsexcat(sexcat, hdu=0, verbose=True, maxflag = 3, posflux = True, minfwhm=2.0, propfields=[]):
 	"""
 	sexcat is either a string (path to a file), or directly an asciidata catalog object as returned by pysex
 	
+	:param hdu: The hdu containing the science data from which I should build the catalog. 0 is primary. If multihdu, 1 is usually science.
+		
 	We read a sextractor catalog with astroasciidata and return a list of stars.
 	Minimal fields that must be present in the catalog :
 
 		* NUMBER
+		* EXT_NUMBER
 		* X_IMAGE
 		* Y_IMAGE
 		* FWHM_IMAGE
@@ -255,7 +258,7 @@ def readsexcat(sexcat, verbose=True, maxflag = 3, posflux = True, minfwhm=2.0, p
 		mycat = sexcat
 		
 	# We check for the presence of required fields :
-	minimalfields = ["NUMBER", "X_IMAGE", "Y_IMAGE", "FWHM_IMAGE", "ELONGATION", "FLUX_AUTO", "FLAGS"]
+	minimalfields = ["NUMBER", "X_IMAGE", "Y_IMAGE", "FWHM_IMAGE", "ELONGATION", "FLUX_AUTO", "FLAGS", "EXT_NUMBER"]
 	minimalfields.extend(propfields)
 	availablefields = [col.colname for col in mycat]
 	for field in minimalfields:
@@ -275,6 +278,8 @@ def readsexcat(sexcat, verbose=True, maxflag = 3, posflux = True, minfwhm=2.0, p
 	else :
 		for i, num in enumerate(mycat['NUMBER']) :
 			if mycat['FLAGS'][i] > maxflag :
+				continue
+			if mycat['EXT_NUMBER'][i] != hdu :
 				continue
 			flux = mycat['FLUX_AUTO'][i]
 			if posflux and (flux < 0.0) :
