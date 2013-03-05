@@ -14,6 +14,7 @@ Below is a highly commented demo script. Note that all the SExtractor and catalo
 	identifications = alipy.ident.run(ref_image, images_to_align, visu=False)
 	# That's it !
 	# Put visu=True to get visualizations in form of png files (nice but much slower)
+	# On multi-extension data, you will want to specify the hdu (see API doc).
 	
 	# The output is a list of Identification objects, which contain the transforms :
 	for id in identifications: # list of the same length as images_to_align.
@@ -25,7 +26,9 @@ Below is a highly commented demo script. Note that all the SExtractor and catalo
 			#print id.trans.v # the raw data, [r*cos(theta)  r*sin(theta)  r*shift_x  r*shift_y]
 			#print id.trans.matrixform()
 			#print id.trans.inverse() # this returns a new SimpleTransform object
-			
+		
+		else:
+			print "%20s : no transformation found !" % (id.ukn.name) 
 		
 	# Minimal example of how to align images :
 	
