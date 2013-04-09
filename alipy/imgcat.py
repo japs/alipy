@@ -46,7 +46,7 @@ class ImgCat:
 	
 	def makecat(self, rerun=True, keepcat=False, verbose=True):
 		self.cat = pysex.run(self.filepath, conf_args={'DETECT_THRESH':3.0, 'ANALYSIS_THRESH':3.0, 'DETECT_MINAREA':10,
-		'PIXEL_SCALE':1.0, 'SEEING_FWHM':2.0, "FILTER":"Y"},
+		'PIXEL_SCALE':1.0, 'SEEING_FWHM':2.0, "FILTER":"Y", 'VERBOSE_TYPE':'NORMAL' if verbose else 'QUIET'},
 		params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE', 'FLAGS', 'ELONGATION', 'NUMBER', "EXT_NUMBER"],
 		rerun=rerun, keepcat=keepcat, catdir="alipy_cats")
 
