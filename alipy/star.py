@@ -268,7 +268,16 @@ def readsexcat(sexcat, hdu=0, verbose=True, maxflag = 3, posflux = True, minfwhm
 	
 	if verbose : 
 		print "Number of sources in catalog : %i" % (mycat.nrows)
-		
+	
+	extnumbers = np.unique(mycat['EXT_NUMBER'].tonumpy())
+	if verbose:
+		print "EXT_NUMBER values found in catalog : %s" % (", ".join(["%i" % val for val in extnumbers]))
+	
+	if len(extnumbers) > 1 and hdu == 0:
+		print "Looks like we have several FITS extensions. You have to specify which hdu to use !"
+		sys.exit(1)
+	
+	
 	propfields.append("FLAGS")
 	propfields = list(set(propfields))
 		
@@ -279,7 +288,7 @@ def readsexcat(sexcat, hdu=0, verbose=True, maxflag = 3, posflux = True, minfwhm
 		for i, num in enumerate(mycat['NUMBER']) :
 			if mycat['FLAGS'][i] > maxflag :
 				continue
-			if mycat['EXT_NUMBER'][i] != hdu :
+			if hdu != 0 and mycat['EXT_NUMBER'][i] != hdu :
 				continue
 			flux = mycat['FLUX_AUTO'][i]
 			if posflux and (flux < 0.0) :
