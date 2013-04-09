@@ -214,7 +214,7 @@ def run(ref, ukns, hdu=0, visu=True, skipsaturated=False, r = 5.0, n=500, sexkee
 	:param ukns: list of paths to FITS files to be "aligned" on the reference. **ukn** stands for unknown.
 	:type ref: list of strings
 	
-	:param hdu: The hdu of the fits files (same for all) that you want me to use. 0 is primary. If multihdu, 1 is usually science.
+	:param hdu: The hdu of the fits files (same for all) that you want me to use. 0 is somehow "automatic". If multihdu, 1 is usually science.
 	
 	:param visu: If yes, I'll draw some visualizations of the process (good to understand problems, if the identification fails).
 	:type visu: boolean

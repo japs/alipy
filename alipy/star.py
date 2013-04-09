@@ -212,7 +212,7 @@ def readsexcat(sexcat, hdu=0, verbose=True, maxflag = 3, posflux = True, minfwhm
 	"""
 	sexcat is either a string (path to a file), or directly an asciidata catalog object as returned by pysex
 	
-	:param hdu: The hdu containing the science data from which I should build the catalog. 0 is primary. If multihdu, 1 is usually science.
+	:param hdu: The hdu containing the science data from which I should build the catalog. 0 will select the only available extension. If multihdu, 1 is usually science.
 		
 	We read a sextractor catalog with astroasciidata and return a list of stars.
 	Minimal fields that must be present in the catalog :
