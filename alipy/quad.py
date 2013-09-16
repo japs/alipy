@@ -224,7 +224,10 @@ def proposecands(uknquadlist, refquadlist, n=5, verbose=True):
 	uknbestindexes = np.argsort(uknmindist)
 	
 	candlist = []
-	for i in range(n):
+	nmax = len(uknbestindexes)
+	if verbose:
+		print "We have a maximum of %i quad pairs" % (nmax)
+	for i in range(min(n, nmax)):
 	
 		cand = {"uknquad": uknquadlist[uknbestindexes[i]], "refquad":refquadlist[uknmindistindexes[uknbestindexes[i]]],
 			"dist":uknmindist[uknbestindexes[i]]}
