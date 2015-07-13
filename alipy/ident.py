@@ -141,7 +141,7 @@ class Identification:
         assert len(self.uknmatchstars) == len(self.refmatchstars)
         if len(self.refmatchstars) == 0:
             if verbose:
-                print "No matching stars to compute flux ratio !"
+                print("No matching stars to compute flux ratio !")
             return
 
         reffluxes = star.listtoarray(self.refmatchstars, full=True)[:, 2]
@@ -152,7 +152,7 @@ class Identification:
         self.stdfluxratio = float(np.std(fluxratios))
 
         if verbose:
-            print "Computed flux ratio from %i matches : median %.2f, std %.2f" % (len(reffluxes), self.medfluxratio, self.stdfluxratio)
+            print("Computed flux ratio from %i matches : median %.2f, std %.2f" % (len(reffluxes), self.medfluxratio, self.stdfluxratio))
 
     def showmatch(self, show=False, verbose=True):
         """
@@ -161,7 +161,7 @@ class Identification:
         if self.ok == False:
             return
         if verbose:
-            print "Plotting match ..."
+            print("Plotting match ...")
         import matplotlib.pyplot as plt
         # import matplotlib.patches
         # import matplotlib.collections
@@ -242,7 +242,7 @@ def run(ref, ukns, hdu=0, visu=True, skipsaturated=False, r=5.0, n=500, sexkeepc
     """
 
     if verbose:
-        print 10 * "#", " Preparing reference ..."
+        print(10 * "#", " Preparing reference ...")
     ref = imgcat.ImgCat(ref, hdu=hdu)
     ref.makecat(rerun=sexrerun, keepcat=sexkeepcat, verbose=verbose)
     ref.makestarlist(skipsaturated=skipsaturated, n=n, verbose=verbose)
@@ -255,7 +255,7 @@ def run(ref, ukns, hdu=0, visu=True, skipsaturated=False, r=5.0, n=500, sexkeepc
     for ukn in ukns:
 
         if verbose:
-            print 10 * "#", "Processing %s" % (ukn)
+            print(10 * "#", "Processing %s" % (ukn))
 
         ukn = imgcat.ImgCat(ukn, hdu=hdu)
         ukn.makecat(rerun=sexrerun, keepcat=sexkeepcat, verbose=verbose)
