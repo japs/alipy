@@ -69,8 +69,9 @@ class ImgCat:
             self.xlim = (xmin, xmax)
             self.ylim = (ymin, ymax)
             
-            # Given this starlists, what is a good minimal distance for stars in quads ?
-             self.mindist = min(min(xmax - xmin, ymax - ymin) / 10.0, 30.0)
+            # Given this starlists, what is a good minimal distance for stars
+            # in quads ?
+            self.mindist = min(min(xmax - xmin, ymax - ymin) / 10.0, 30.0)
                  
         else:
             raise RuntimeError("No cat : call makecat first !")
@@ -83,7 +84,7 @@ class ImgCat:
         #if not add:
         #    self.quadlist = []
         if verbose:
-            print "Making more quads, from quadlevel %i ..." % self.quadlevel
+            print("Making more quads, from quadlevel %i ..." % self.quadlevel)
         if self.quadlevel == 0:
             self.quadlist.extend(quad.makequads1(self.starlist, n=7, d=self.mindist, verbose=verbose))
         elif self.quadlevel == 1:
@@ -110,11 +111,11 @@ class ImgCat:
         try:
             import f2n
         except ImportError:
-            print "Couldn't import f2n -- install it !"
+            print("Couldn't import f2n -- install it !")
             return
                 
         if verbose:
-            print "Writing png ..."
+            print("Writing png ...")
         myimage = f2n.fromfits(self.filepath, verbose=False)
         #myimage.rebin(int(myimage.xb/1000.0))
         myimage.setzscale("auto", "auto")
@@ -134,7 +135,7 @@ class ImgCat:
         Uses matplotlib to write/show the quads.
         """
         if verbose:
-            print "Plotting quads ..."
+            print("Plotting quads ...")
         
         import matplotlib.pyplot as plt
         #import matplotlib.patches

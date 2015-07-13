@@ -59,11 +59,11 @@ class Identification:
 		# Some robustness checks
 		if len(self.ref.starlist) < 4:
 			if verbose:
-				print "Not enough stars in the reference catalog."
+				print("Not enough stars in the reference catalog.")
 			return
 		if len(self.ukn.starlist) < 4:
 			if verbose:
-				print "Not enough stars in the unknown catalog."
+				print("Not enough stars in the unknown catalog.")
 			return
  
  		
@@ -112,22 +112,22 @@ class Identification:
 			(self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist, self.ref.starlist, trans=self.trans, r=r, verbose=False, getstars=True)
 			# refit the transform on them :
 			if verbose:
-				print "Refitting transform (before/after) :"
-				print self.trans
+				print("Refitting transform (before/after) :")
+				print(self.trans)
 			newtrans = star.fitstars(self.uknmatchstars, self.refmatchstars)
 			if newtrans != None:
 				self.trans = newtrans
 				if verbose:
-					print self.trans
+					print(self.trans)
 			# Generating final matched star lists :
 			(self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist, self.ref.starlist, trans=self.trans, r=r, verbose=verbose, getstars=True)
 
 			if verbose:
-				print "I'm done !"
+				print("I'm done !")
 	
 		else:
 			if verbose:
-				print "Failed to find transform !"
+				print("Failed to find transform !")
 			
 	def calcfluxratio(self, verbose=True):
 		"""
