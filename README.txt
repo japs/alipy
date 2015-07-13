@@ -1,7 +1,16 @@
 About
 =====
+This is a fork of the original alipy 2 package. The original goal is to make
+this code Python3 and PEP8 compliant. Other than that, it should remain 
+substantially the same.
 
-This is a python package to quickly, automatically, and robustly identify geometrical transforms between optical astronomical images, using only field stars. The images can have different pixel sizes, orientations, pointings and filters.
+Original About
+==============
+
+This is a python package to quickly, automatically, and robustly identify 
+geometrical transforms between optical astronomical images, using only field 
+stars. The images can have different pixel sizes, orientations, pointings 
+and filters.
 
 http://obswww.unige.ch/~tewes/
 
