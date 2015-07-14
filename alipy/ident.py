@@ -7,36 +7,37 @@ import numpy as np
 
 
 class Identification:
-
     """
     Represents the identification of a transform between two ImgCat objects.
-    Regroups all the star catalogs, the transform, the quads, the candidate, etc.
+    Regroups all the star catalogs, the transform, the quads, the candidate,
+    etc.
 
     All instance attributes are listed below.
 
     :ivar ref: ImgCat object of the reference image
     :ivar ukn: ImgCat object of the unknown image
     :ivar ok: boolean, True if the idendification was successful.
-    :ivar trans: The SimpleTransform object that represents the geometrical transform from ukn to ref.
-    :ivar uknmatchstars: A list of Star objects of the catalog of the unknown image...
-    :ivar refmatchstars: ... that correspond to these Star objects of the reference image.
-    :ivar medfluxratio: Median flux ratio between the images: "ukn * medfluxratio = ref"
-            A high value corresponds to a shallow unknown image.
-            It gets computed by the method calcfluxratio, using the matched stars.
+    :ivar trans: The SimpleTransform object that represents the geometrical
+                 transform from ukn to ref.
+    :ivar uknmatchstars: A list of Star objects of the catalog of the
+                         unknown image...
+    :ivar refmatchstars: ... that correspond to these Star objects of the
+                         reference image.
+    :ivar medfluxratio: Median flux ratio between the 
+                        images: "ukn * medfluxratio = ref"
+                        A high value corresponds to a shallow unknown image.
+                        It gets computed by the method calcfluxratio, using
+                        the matched stars.
     :ivar stdfluxratio: Standard error on the flux ratios of the matched stars.
-
-
-
     """
 
     def __init__(self, ref, ukn):
         """
-
         :param ref: The reference image
         :type ref: ImgCat object
-        :param ukn: The unknown image, whose transform will be adjusted to match the ref
+        :param ukn: The unknown image, whose transform will be adjusted to 
+                    match the ref
         :type ukn: ImgCat object
-
         """
         self.ref = ref
         self.ukn = ukn
@@ -48,12 +49,14 @@ class Identification:
         self.refmatchstars = []
         self.cand = None
 
-        self.medfluxratio = None  # ukn * medfluxratio --> ref (high value means shallow image)
+        self.medfluxratio = None  # ukn * medfluxratio 
+                                  # --> ref (high value means shallow image)
         self.stdfluxratio = None
 
     def findtrans(self, r=5.0, verbose=True):
         """
-        Find the best trans given the quads, and tests if the match is sufficient
+        Find the best trans given the quads, and tests if the match is
+        sufficient
         """
 
         # Some robustness checks
@@ -67,7 +70,8 @@ class Identification:
             return
 
         # First question : how many stars should match ?
-        if len(self.ukn.starlist) < 5:  # Then we should simply try to get the smallest distance...
+        if len(self.ukn.starlist) < 5:  # Then we should simply try to get 
+                                        # the smallest distance...
             minnident = 4
         else:
             minnident = max(4, min(8, len(self.ukn.starlist) / 5.0))
@@ -83,7 +87,6 @@ class Identification:
             self.ukn.makemorequads(verbose=verbose)
 
         while self.ok == False:
-
             # Find the best candidates
             cands = quad.proposecands(
                 self.ukn.quadlist, self.ref.quadlist, n=4, verbose=verbose)
@@ -92,8 +95,12 @@ class Identification:
                 # If no quads are available, we directly try to make more ones.
                 for cand in cands:
                     # Check how many stars are identified...
-                    nident = star.identify(self.ukn.starlist, self.ref.starlist, trans=cand[
-                                           "trans"], r=r, verbose=verbose, getstars=False)
+                    nident = star.identify(self.ukn.starlist,
+                                           self.ref.starlist,
+                                           trans=cand["trans"],
+                                           r=r,
+                                           verbose=verbose,
+                                           getstars=False)
                     if nident >= minnident:
                         self.trans = cand["trans"]
                         self.cand = cand
@@ -110,8 +117,13 @@ class Identification:
 
         if self.ok:  # we refine the transform
             # get matching stars :
-            (self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist,
-                                                                     self.ref.starlist, trans=self.trans, r=r, verbose=False, getstars=True)
+            (self.uknmatchstars, self.refmatchstars) = \
+                                              star.identify(self.ukn.starlist,
+                                                            self.ref.starlist,
+                                                            trans=self.trans,
+                                                            r=r,
+                                                            verbose=False,
+                                                            getstars=True)
             # refit the transform on them :
             if verbose:
                 print("Refitting transform (before/after) :")
@@ -122,12 +134,15 @@ class Identification:
                 if verbose:
                     print(self.trans)
             # Generating final matched star lists :
-            (self.uknmatchstars, self.refmatchstars) = star.identify(self.ukn.starlist,
-                                                                     self.ref.starlist, trans=self.trans, r=r, verbose=verbose, getstars=True)
-
+            (self.uknmatchstars, self.refmatchstars) = \
+                                       star.identify(self.ukn.starlist,
+                                                     self.ref.starlist,
+                                                     trans=self.trans,
+                                                     r=r,
+                                                     verbose=verbose,
+                                                     getstars=True)
             if verbose:
                 print("I'm done !")
-
         else:
             if verbose:
                 print("Failed to find transform !")
@@ -135,8 +150,11 @@ class Identification:
     def calcfluxratio(self, verbose=True):
         """
         Computes a very simple median flux ratio between the images.
-        The purpose is simply to get a crude guess, for images with e.g. different exposure times.
-        Given that we have these corresponding star lists in hand, this is trivial to do once findtrans was run.
+
+        The purpose is simply to get a crude guess, for images with e.g. 
+        different exposure times.
+        Given that we have these corresponding star lists in hand, this is
+        trivial to do once findtrans was run.
         """
         assert len(self.uknmatchstars) == len(self.refmatchstars)
         if len(self.refmatchstars) == 0:
@@ -152,7 +170,10 @@ class Identification:
         self.stdfluxratio = float(np.std(fluxratios))
 
         if verbose:
-            print("Computed flux ratio from %i matches : median %.2f, std %.2f" % (len(reffluxes), self.medfluxratio, self.stdfluxratio))
+            print(("Computed flux ratio from %i matches : "
+                   "median %.2f, std %.2f") % (len(reffluxes),
+                                               self.medfluxratio,
+                                               self.stdfluxratio))
 
     def showmatch(self, show=False, verbose=True):
         """
@@ -206,37 +227,49 @@ class Identification:
                 os.path.join("alipy_visu", self.ukn.name + "_match.png"))
 
 
-def run(ref, ukns, hdu=0, visu=True, skipsaturated=False, r=5.0, n=500, sexkeepcat=False, sexrerun=True, verbose=True):
+def run(ref, ukns, hdu=0, visu=True, skipsaturated=False,
+        r=5.0, n=500, sexkeepcat=False, sexrerun=True, verbose=True):
     """
     Top-level function to identify transorms between images.
-    Returns a list of Identification objects that contain all the info to go further.
+
+    Returns a list of Identification objects that contain all the info to go
+    further.
 
     :param ref: path to a FITS image file that will act as the "reference".
     :type ref: string
 
-    :param ukns: list of paths to FITS files to be "aligned" on the reference. **ukn** stands for unknown.
+    :param ukns: list of paths to FITS files to be "aligned" on the reference.
+                 **ukn** stands for unknown.
     :type ref: list of strings
 
-    :param hdu: The hdu of the fits files (same for all) that you want me to use. 0 is somehow "automatic". If multihdu, 1 is usually science.
+    :param hdu: The hdu of the fits files (same for all) that you want me to
+                use. 0 is somehow "automatic". If multihdu, 1 is usually
+                science.
 
-    :param visu: If yes, I'll draw some visualizations of the process (good to understand problems, if the identification fails).
+    :param visu: If yes, I'll draw some visualizations of the process (good
+                 to understand problems, if the identification fails).
     :type visu: boolean
 
     :param skipsaturated: Should I skip saturated stars ?
     :type skipsaturated: boolean
 
-    :param r: Identification radius in pixels of the reference image (default 5.0 should be fine).
+    :param r: Identification radius in pixels of the reference image
+              (default 5.0 should be fine).
     :type r: float
-    :param n: Number of brightest stars of each image to consider (default 500 should be fine).
+    :param n: Number of brightest stars of each image to consider
+              (default 500 should be fine).
     :type n: int
 
-    :param sexkeepcat: Put this to True if you want me to keep the SExtractor catalogs (in a dir "alipy_cats").
+    :param sexkeepcat: Put this to True if you want me to keep the SExtractor
+                       catalogs (in a dir "alipy_cats").
     :type sexkeepcat: boolean
-    :param sexrerun: Put this to False if you want me to check if I have some previously kept catalogs (with sexkeepcat=True),
-            instead of running SExtractor again on the images.
+    :param sexrerun: Put this to False if you want me to check if I have some
+                     previously kept catalogs (with sexkeepcat=True),
+                     instead of running SExtractor again on the images.
     :type sexrerun: boolean
 
-    .. todo:: Make this guy accept existing asciidata catalogs, instead of only FITS images.
+    .. todo:: Make this guy accept existing asciidata catalogs, instead of
+              only FITS images.
 
 
     """
