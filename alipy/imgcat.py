@@ -6,7 +6,6 @@ import numpy as np
 
 
 class ImgCat:
-
     """
     Represent an individual image and its associated catalog, starlist,
     quads etc.
@@ -55,12 +54,21 @@ class ImgCat:
 
     def makecat(self, rerun=True, keepcat=False, verbose=True):
         self.cat = pysex.run(
-            self.filepath, conf_args={
-                'DETECT_THRESH': 3.0, 'ANALYSIS_THRESH': 3.0, 'DETECT_MINAREA': 10,
-                'PIXEL_SCALE': 1.0, 'SEEING_FWHM': 2.0, "FILTER": "Y", 'VERBOSE_TYPE': 'NORMAL' if verbose else 'QUIET'},
-            params=['X_IMAGE', 'Y_IMAGE', 'FLUX_AUTO', 'FWHM_IMAGE',
-                            'FLAGS', 'ELONGATION', 'NUMBER', "EXT_NUMBER"],
-            rerun=rerun, keepcat=keepcat, catdir="alipy_cats")
+            self.filepath,
+            conf_args={'DETECT_THRESH': 3.0,
+                       'ANALYSIS_THRESH': 3.0,
+                       'DETECT_MINAREA': 10,
+                       'PIXEL_SCALE': 1.0,
+                       'SEEING_FWHM': 2.0,
+                       "FILTER": "Y",
+                       'VERBOSE_TYPE': 'NORMAL' if verbose else 'QUIET'},
+            params=['X_IMAGE', 'Y_IMAGE',
+                    'FLUX_AUTO', 'FWHM_IMAGE',
+                    'FLAGS', 'ELONGATION',
+                    'NUMBER', "EXT_NUMBER"],
+            rerun=rerun,
+            keepcat=keepcat,
+            catdir="alipy_cats")
 
     def makestarlist(self, skipsaturated=False, n=200, verbose=True):
         if self.cat:
@@ -69,7 +77,8 @@ class ImgCat:
             else:
                 maxflag = 7
             self.starlist = star.sortstarlistbyflux(
-                star.readsexcat(self.cat, hdu=self.hdu, maxflag=maxflag, verbose=verbose))[:n]
+                star.readsexcat(self.cat, hdu=self.hdu,
+                                maxflag=maxflag, verbose=verbose))[:n]
             (xmin, xmax, ymin, ymax) = star.area(self.starlist, border=0.01)
             self.xlim = (xmin, xmax)
             self.ylim = (ymin, ymax)
@@ -91,19 +100,31 @@ class ImgCat:
             print("Making more quads, from quadlevel %i ..." % self.quadlevel)
         if self.quadlevel == 0:
             self.quadlist.extend(
-                quad.makequads1(self.starlist, n=7, d=self.mindist, verbose=verbose))
+                quad.makequads1(self.starlist, n=7,
+                                d=self.mindist,
+                                verbose=verbose))
         elif self.quadlevel == 1:
             self.quadlist.extend(
-                quad.makequads2(self.starlist, f=3, n=5, d=self.mindist, verbose=verbose))
+                quad.makequads2(self.starlist,
+                                f=3, n=5,
+                                d=self.mindist,
+                                verbose=verbose))
         elif self.quadlevel == 2:
             self.quadlist.extend(
-                quad.makequads2(self.starlist, f=6, n=5, d=self.mindist, verbose=verbose))
+                quad.makequads2(self.starlist,
+                                f=6, n=5,
+                                d=self.mindist,
+                                verbose=verbose))
         elif self.quadlevel == 3:
             self.quadlist.extend(
-                quad.makequads2(self.starlist, f=12, n=5, d=self.mindist, verbose=verbose))
+                quad.makequads2(self.starlist,
+                                f=12, n=5,
+                                d=self.mindist, verbose=verbose))
         elif self.quadlevel == 4:
             self.quadlist.extend(
-                quad.makequads2(self.starlist, f=10, n=6, s=3, d=self.mindist, verbose=verbose))
+                quad.makequads2(self.starlist,
+                                f=10, n=6, s=3,
+                                d=self.mindist, verbose=verbose))
 
         else:
             return False
@@ -131,8 +152,8 @@ class ImgCat:
         # myimage.upsample()
         myimage.drawstarlist(self.starlist, r=8, autocolour="flux")
         myimage.writetitle(os.path.basename(self.filepath))
-        # myimage.writeinfo(["This is a demo", "of some possibilities", "of
-        # f2n.py"], colour=(255,100,0))
+        # myimage.writeinfo(["This is a demo", "of some possibilities",
+        #                    "of f2n.py"], colour=(255,100,0))
         if not os.path.isdir("alipy_visu"):
             os.makedirs("alipy_visu")
         myimage.tonet(os.path.join("alipy_visu", self.name + "_stars.png"))
@@ -159,15 +180,16 @@ class ImgCat:
                 f = 1.0 + 8.0 * (f - fmin) / (fmax - fmin)
                 plt.scatter(a[:, 0], a[:, 1], s=f, color="black")
             else:
-                plt.plot(
-                    a[:, 0], a[:, 1], marker=",", ls="none", color="black")
+                plt.plot(a[:, 0], a[:, 1],
+                         marker=",", ls="none", color="black")
 
         if len(self.quadlist) != 0:
             for quad in self.quadlist:
                 polycorners = star.listtoarray(quad.stars)
                 polycorners = ccworder(polycorners)
-                plt.fill(polycorners[:, 0], polycorners[
-                         :, 1], alpha=0.03, ec="none")
+                plt.fill(polycorners[:, 0],
+                         polycorners[:, 1],
+                         alpha=0.03, ec="none")
 
         plt.xlim(self.xlim)
         plt.ylim(self.ylim)
@@ -192,3 +214,4 @@ def ccworder(a):
     ac = a - np.mean(a, 0)
     indices = np.argsort(np.arctan2(ac[:, 1], ac[:, 0]))
     return a[indices]
+

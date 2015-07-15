@@ -15,7 +15,6 @@ from alipy import star
 
 
 class Quad:
-
     """
     A geometric "hash", or asterism, as used in Astrometry.net :
     http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:0910.2233
@@ -29,7 +28,6 @@ class Quad:
         We make the following attributes :
         self.hash
         self.stars (in the order A, B, C, D)
-
         """
         assert len(fourstars) == 4
 
@@ -98,7 +96,8 @@ class Quad:
     def __str__(self):
         return "Hash : %6.3f %6.3f %6.3f %6.3f / IDs : (%s, %s, %s, %s)" % (
             self.hash[0], self.hash[1], self.hash[2], self.hash[3],
-                self.stars[0].name, self.stars[1].name, self.stars[2].name, self.stars[3].name)
+            self.stars[0].name, self.stars[1].name,
+            self.stars[2].name, self.stars[3].name)
 
 
 def mindist(fourstars):
@@ -118,8 +117,8 @@ def makequads1(starlist, n=7, s=0, d=50.0, verbose=True):
     :param n: number of stars to consider (brightest ones).
     :type n: int
     :param s: how many of the brightest stars should I skip ?
-            This feature is useful to avoid building quads with nearly saturated stars that are not
-            available in other exposures.
+              This feature is useful to avoid building quads with nearly
+              saturated stars that are not available in other exposures.
     :type s: int
     :param d: minimal distance between stars
     :type d: float
@@ -133,8 +132,9 @@ def makequads1(starlist, n=7, s=0, d=50.0, verbose=True):
             quadlist.append(Quad(fourstars))
 
     if verbose:
-        print("Made %4i quads from %4i stars (combi n=%i s=%i d=%.1f)" % (len(quadlist), len(starlist), n, s, d))
-
+        print(("Made %4i quads from %4i "
+               "stars (combi n=%i s=%i d=%.1f)") % (len(quadlist),
+                                                    len(starlist), n, s, d))
     return quadlist
 
 
@@ -171,8 +171,10 @@ def makequads2(starlist, f=5.0, n=6, s=0, d=50.0, verbose=True):
                     quadlist.append(Quad(fourstars))
 
     if verbose:
-        print("Made %4i quads from %4i stars (combi sub f=%.1f n=%i s=%i d=%.1f)" % (len(quadlist), len(starlist), f, n, s, d))
-
+        print(("Made %4i quads from %4i stars "
+               "(combi sub f=%.1f n=%i s=%i d=%.1f)") % (len(quadlist),
+                                                         len(starlist),
+                                                         f, n, s, d))
     return quadlist
 
 
@@ -194,14 +196,16 @@ def removeduplicates(quadlist, verbose=True):
     ui[1:] = (diff >= 0.000001).any(axis=1)
     # print hasharray[ui==False]
     if verbose:
-        print("Removing %i/%i duplicates" % (len(quadlist) - np.sum(ui), len(quadlist)))
+        print("Removing %i/%i duplicates" % (len(quadlist) - np.sum(ui),
+                                             len(quadlist)))
 
     return [quad for (quad, u) in zip(quadlist, ui) if u == True]
 
 
 def proposecands(uknquadlist, refquadlist, n=5, verbose=True):
     """
-    Function that identifies similar quads between the unknown image and a reference.
+    Function that identifies similar quads between the unknown image and a
+    reference.
     Returns a dict of (uknquad, refquad, dist, trans)
     """
     # Nothing to do if the quadlists are empty ...
@@ -211,7 +215,10 @@ def proposecands(uknquadlist, refquadlist, n=5, verbose=True):
         return []
 
     if verbose:
-        print("Finding %i best candidates among %i x %i (ukn x ref)" % (n, len(uknquadlist), len(refquadlist)))
+        print(("Finding %i best candidates "
+               "among %i x %i (ukn x ref)") % (n,
+                                               len(uknquadlist), 
+                                               len(refquadlist)))
     uknhashs = np.array([q.hash for q in uknquadlist])
     refhashs = np.array([q.hash for q in refquadlist])
 
@@ -228,16 +235,17 @@ def proposecands(uknquadlist, refquadlist, n=5, verbose=True):
         print("We have a maximum of %i quad pairs" % (nmax))
     for i in range(min(n, nmax)):
 
-        cand = {
-            "uknquad": uknquadlist[uknbestindexes[i]], "refquad": refquadlist[uknmindistindexes[uknbestindexes[i]]],
+        cand = {"uknquad": uknquadlist[uknbestindexes[i]],
+                "refquad": refquadlist[uknmindistindexes[uknbestindexes[i]]],
                 "dist": uknmindist[uknbestindexes[i]]}
 
         cand["trans"] = quadtrans(cand["uknquad"], cand["refquad"])
 
         candlist.append(cand)
         if verbose:
-            print("Cand %2i (dist. %12.8f) : %s" % (i + 1, cand["dist"], str(cand["trans"])))
-
+            print("Cand %2i (dist. %12.8f) : %s" % (i + 1,
+                                                    cand["dist"],
+                                                    str(cand["trans"])))
     return candlist
 
 
@@ -246,3 +254,4 @@ def quadtrans(uknquad, refquad):
     Quickly return a transform estimated from the stars A and B of two quads.
     """
     return star.fitstars(uknquad.stars[:2], refquad.stars[:2])
+

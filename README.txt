@@ -1,8 +1,12 @@
 About
 =====
-This is a fork of the original alipy 2 package. The original goal is to make
+This is a fork of the original alipy 2 package. The main goal is to make
 this code Python3 and PEP8 compliant. Other than that, it should remain 
 substantially the same.
+
+For the documentation, please refer to the original page:
+
+http://obswww.unige.ch/~tewes/alipy/
 
 Original About
 ==============
