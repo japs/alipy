@@ -27,7 +27,8 @@ def _check_files(conf_file, conf_args, verbose=True):
     if conf_file is None:
         os.system("sex -d > .pysex.sex")
         conf_file = '.pysex.sex'
-    if not conf_args.has_key('FILTER_NAME') or not os.path.isfile(conf_args['FILTER_NAME']):
+    if "FILTER_NAME" not in conf_args or \
+       not os.path.isfile(conf_args['FILTER_NAME']):
         if verbose:
             print('No filter file found, using default filter')
         f = open('.pysex.conv', 'w')

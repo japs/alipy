@@ -1,6 +1,6 @@
-import imgcat
-import quad
-import star
+from alipy import imgcat
+from alipy import quad
+from alipy import star
 import sys
 import os
 import numpy as np

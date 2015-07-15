@@ -11,7 +11,7 @@ import copy
 import itertools
 import scipy.spatial
 
-import star
+from alipy import star
 
 
 class Quad:

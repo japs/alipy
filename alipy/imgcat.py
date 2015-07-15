@@ -1,6 +1,6 @@
-import star
-import pysex
-import quad
+from alipy import star
+from alipy import pysex
+from alipy import quad
 import os
 import numpy as np
 
