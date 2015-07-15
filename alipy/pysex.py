@@ -32,18 +32,18 @@ def _check_files(conf_file, conf_args, verbose=True):
         if verbose:
             print('No filter file found, using default filter')
         f = open('.pysex.conv', 'w')
-        print>>f, """CONV NORM
+        print("""CONV NORM
 # 3x3 ``all-ground'' convolution mask with FWHM = 2 pixels.
 1 2 1
 2 4 2
-1 2 1"""
+1 2 1""", file=f)
         f.close()
         conf_args['FILTER_NAME'] = '.pysex.conv'
-    if not conf_args.has_key('STARNNW_NAME') or not os.path.isfile(conf_args['STARNNW_NAME']):
+    if 'STARNNW_NAME' not in conf_args or not os.path.isfile(conf_args['STARNNW_NAME']):
         if verbose:
             print('No NNW file found, using default NNW config')
         f = open('.pysex.nnw', 'w')
-        print>>f, """NNW
+        print("""NNW
 # Neural Network Weights for the SExtractor star/galaxy classifier (V1.3)
 # inputs:	 9 for profile parameters + 1 for seeing.
 # outputs:	  ``Stellarity index'' (0.0 to 1.0)
@@ -70,7 +70,7 @@ def _check_files(conf_file, conf_args, verbose=True):
 
 
  0.00000e+00
- 1.00000e+00"""
+ 1.00000e+00""", file=f)
         f.close()
         conf_args['STARNNW_NAME'] = '.pysex.nnw'
 
@@ -84,7 +84,7 @@ def _setup(conf_file, params):
         pass  # already created in _check_files
 
     f = open('.pysex.param', 'w')
-    print>>f, '\n'.join(params)
+    print('\n'.join(params), file=f)
     f.close()
 
 
