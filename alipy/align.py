@@ -1,4 +1,5 @@
 from alipy import star
+# star not used?
 import os
 import numpy as np
 import math
@@ -22,7 +23,7 @@ def affineremap(filepath, transform, shape, alifilepath=None,
     :param shape: Output shape (width, height)
     :type shape: tuple
 
-    :param alifilepath: where to save the aligned image. If None, I will put 
+    :param alifilepath: where to save the aligned image. If None, I will put
                         it in the outdir directory.
     :type alifilepath: string
 
@@ -42,14 +43,17 @@ def affineremap(filepath, transform, shape, alifilepath=None,
 
     basename = os.path.splitext(os.path.basename(filepath))[0]
 
-    if alifilepath == None:
+    if alifilepath is None:
         alifilepath = os.path.join(outdir, basename + "_affineremap.fits")
     else:
         outdir = os.path.split(alifilepath)[0]
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
 
-    tofits(alifilepath, data, hdr=None, verbose=verbose)
+    if hdr:
+        tofits(alifilepath, data, hdr=hdr, verbose=verbose)
+    else:
+        tofits(alifilepath, data, hdr=None, verbose=verbose)
 
     if makepng:
         try:
@@ -97,10 +101,12 @@ def fromfits(infilename, hdu=0, verbose=True):
 
     pixelarrayshape = pixelarray.shape
     if verbose:
-        print("FITS import (%i, %i) BITPIX %s / %s" % (pixelarrayshape[0],
-                                             pixelarrayshape[1],
-                                             hdr["BITPIX"],
-                                             str(pixelarray.dtype.name)))
+        print("FITS import (%i, %i) BITPIX %s / %s" % (
+            pixelarrayshape[0],
+            pixelarrayshape[1],
+            hdr["BITPIX"],
+            str(pixelarray.dtype.name)
+        ))
     return pixelarray, hdr
 
 
@@ -110,13 +116,13 @@ def tofits(outfilename, pixelarray, hdr=None, verbose=True):
 
     If you specify a header (pyfits format, as returned by fromfits()) it
     will be used for the image.
-    You can give me boolean numpy arrays, I will convert them into 8 bit 
+    You can give me boolean numpy arrays, I will convert them into 8 bit
     integers.
     """
     pixelarrayshape = pixelarray.shape
     if verbose:
-        print("FITS export (%i, %i) %s ..." % (pixelarrayshape[0], 
-                                               pixelarrayshape[1], 
+        print("FITS export (%i, %i) %s ..." % (pixelarrayshape[0],
+                                               pixelarrayshape[1],
                                                str(pixelarray.dtype.name)))
 
     if pixelarray.dtype.name == "bool":
@@ -125,7 +131,7 @@ def tofits(outfilename, pixelarray, hdr=None, verbose=True):
     if os.path.isfile(outfilename):
         os.remove(outfilename)
 
-    if hdr == None:  # then a minimal header will be created
+    if hdr is None:  # then a minimal header will be created
         hdu = pyfits.PrimaryHDU(pixelarray.transpose())
     else:  # this if else is probably not needed but anyway ...
         hdu = pyfits.PrimaryHDU(pixelarray.transpose(), hdr)
@@ -202,20 +208,21 @@ def irafalign(filepath, uknstarlist, refstarlist, shape,
     # Step 2, geomap
 
     iraf.unlearn(iraf.geomap)
-    iraf.geomap.fitgeom = "rscale" # You can change this to: 
-                                   #          shift, xyscale, rotate, rscale
+    iraf.geomap.fitgeom = "rscale"
+    # You can change this to:
+    # shift, xyscale, rotate, rscale
     iraf.geomap.function = "polynomial"  # Surface type
     iraf.geomap.maxiter = 3         # Maximum number of rejection iterations
     iraf.geomap.reject = 3.0        # Rejection limit in sigma units
 
     # other options you could specify :
-    #(xxorder=    2) Order of x fit in x
-    #(xyorder=    2) Order of x fit in y
-    #(xxterms= half) X fit cross terms type
-    #(yxorder=    2) Order of y fit in x
-    #(yyorder=    2) Order of y fit in y
-    #(yxterms= half) Y fit cross terms type
-    #(calctyp= real) Computation type
+    # (xxorder=    2) Order of x fit in x
+    # (xyorder=    2) Order of x fit in y
+    # (xxterms= half) X fit cross terms type
+    # (yxorder=    2) Order of y fit in x
+    # (yyorder=    2) Order of y fit in y
+    # (yxterms= half) Y fit cross terms type
+    # (calctyp= real) Computation type
 
     iraf.geomap.transfo = "broccoli"    # keep it
     iraf.geomap.interac = "no"		# keep it
@@ -238,8 +245,9 @@ def irafalign(filepath, uknstarlist, refstarlist, shape,
             mapangles = line.split()[-4:-2]
         if "X and Y shift:" in line:
             mapshifts = line.split()[-4:-2]
+            # not used?
 
-    geomaprms = math.sqrt(float(maprmss[0]) * float(maprmss[0]) + \
+    geomaprms = math.sqrt(float(maprmss[0]) * float(maprmss[0]) +
                           float(maprmss[1]) * float(maprmss[1]))
     geomapangle = float(mapangles[0])  # % 360.0
     geomapscale = 1.0 / float(mapscale[0])
@@ -253,7 +261,7 @@ def irafalign(filepath, uknstarlist, refstarlist, shape,
                                                    geomaprms))
     # Step 3
 
-    if alifilepath == None:
+    if alifilepath is None:
         alifilepath = os.path.join(outdir, basename + "_gregister.fits")
     else:
         outdir = os.path.split(alifilepath)[0]
@@ -277,6 +285,7 @@ def irafalign(filepath, uknstarlist, refstarlist, shape,
                                database=geodatabasepath,
                                transform="broccoli",
                                Stdout=1)
+    # not used?
 
     if verbose:
         print("IRAF gregister done !")
