@@ -9,7 +9,7 @@ import csv
 
 
 def affineremap(filepath, transform, shape, alifilepath=None,
-                outdir="alipy_out", makepng=False, hdu=0, verbose=True):
+                outdir="alipy_out", makepng=False, hdu=0, verbose=True, overwrite=False):
     """
     Apply the simple affine transform to the image and saves the result as
     FITS, without using pyraf.
@@ -32,6 +32,9 @@ def affineremap(filepath, transform, shape, alifilepath=None,
 
     :param hdu: The hdu of the fits file that you want me to use. 0 is primary.
                 If multihdu, 1 is usually science.
+                
+    :param overwrite: If True outdir is ignored and the original files will be overwrite.
+    :type overwrite: boolean
     """
     inv = transform.inverse()
     (matrix, offset) = inv.matrixform()
@@ -42,11 +45,13 @@ def affineremap(filepath, transform, shape, alifilepath=None,
         data, matrix, offset=offset, output_shape=shape)
 
     basename = os.path.splitext(os.path.basename(filepath))[0]
-
-    if alifilepath is None:
-        alifilepath = os.path.join(outdir, basename + "_affineremap.fits")
-    else:
-        outdir = os.path.split(alifilepath)[0]
+    
+    if overwrite:
+        alifilepath = filepath
+        if alifilepath is None:
+            alifilepath = os.path.join(outdir, basename + "_affineremap.fits")
+        else:
+            outdir = os.path.split(alifilepath)[0]
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
 
