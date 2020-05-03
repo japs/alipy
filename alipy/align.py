@@ -205,7 +205,7 @@ def irafalign(filepath, uknstarlist, refstarlist, shape,
     table = []
     for (uknstar, refstar) in zip(uknstarlist, refstarlist):
         table.append([refstar.x, refstar.y, uknstar.x, uknstar.y])
-    geomap = open(geomapinpath, "wb")  # b needed for csv
+    geomap = open(geomapinpath, "w")
     writer = csv.writer(geomap, delimiter="\t")
     writer.writerows(table)
     geomap.close()
